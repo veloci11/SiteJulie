@@ -9,7 +9,7 @@ import { arrivalImage } from "@/lib/museum/arrivalImage";
 import { normalizeCollectionOrder } from "@/lib/data/collections";
 
 it("serves a private poster only while every pictured work is still publicly in place", async () => {
-  const seed = JSON.parse(await readFile(".local/seed.json", "utf8"));
+  const seed = JSON.parse(await readFile("tests/fixtures/catalog.json", "utf8"));
   const data: PublicData = {
     ...seed,
     mode: "demo",

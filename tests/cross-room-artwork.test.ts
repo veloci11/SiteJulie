@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { mkdirSync, writeFileSync } from "node:fs";
-import seed from "../.local/seed.json";
+import seed from "./fixtures/catalog.json";
 import type { Artwork } from "../lib/data/types";
 import {
   artworkPose,
@@ -19,7 +19,7 @@ const artworks = seed.artworks as Artwork[];
 const rooms = ["room-1", "room-2"];
 const angle = (a: number, b: number) =>
   Math.atan2(Math.sin(b - a), Math.cos(b - a));
-describe("Cross-room artwork circulation with the real collection and manifest", () => {
+describe("Cross-room artwork circulation with representative artwork ratios and the real manifest", () => {
   it("faces its route, crosses the opening once, and preserves focus/interruption continuity", () => {
     const obstacles = navigationObstaclesForRooms(rooms);
     const report: Record<string, unknown>[] = [];

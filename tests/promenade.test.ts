@@ -14,9 +14,9 @@ import {
 import { ContinuousPromenade, continuationRoom } from "../lib/museum/promenade";
 import { createAmbientWalk, sampleAmbientWalk } from "../lib/museum/tour";
 
-// Read geometry and publication status only; never write private local data.
+// Stable geometry fixtures keep CI independent from private local data.
 const local = JSON.parse(
-  readFileSync(new URL("../.local/data.json", import.meta.url), "utf8"),
+  readFileSync(new URL("./fixtures/catalog.json", import.meta.url), "utf8"),
 );
 const artworks: Artwork[] = local.artworks.filter(
   (a: Artwork & { publication: string }) => a.publication === "published",

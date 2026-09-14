@@ -29,7 +29,7 @@ afterEach(async () => {
   );
 });
 async function fixture() {
-  const seed = JSON.parse(await readFile(".local/seed.json", "utf8"));
+  const seed = JSON.parse(await readFile("tests/fixtures/catalog.json", "utf8"));
   const data: PublicData = {
     ...seed,
     mode: "demo",

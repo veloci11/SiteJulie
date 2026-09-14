@@ -6,7 +6,7 @@ import {
   classicUrl,
   priceLabel,
 } from "../lib/public";
-import seed from "../.local/seed.json";
+import seed from "./fixtures/catalog.json";
 import type { Artwork, SiteSettings } from "../lib/data/types";
 const artworks = seed.artworks as Artwork[];
 const settings = seed.settings as SiteSettings;

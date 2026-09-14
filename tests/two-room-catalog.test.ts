@@ -4,7 +4,7 @@ import type { AdminArtwork, SiteSettings } from "@/lib/data/types";
 import { publicArtwork } from "@/lib/validation/artwork";
 import { classicUrl, destinationUrl, parseDestination } from "@/lib/public";
 
-const seed = JSON.parse(readFileSync(".local/seed.json", "utf8")) as {
+const seed = JSON.parse(readFileSync("tests/fixtures/catalog.json", "utf8")) as {
   artworks: AdminArtwork[];
   settings: SiteSettings;
   rooms: string[];
