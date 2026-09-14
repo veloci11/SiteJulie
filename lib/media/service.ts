@@ -2,12 +2,60 @@ import { randomUUID } from "node:crypto";
 import { readFile, mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import sharp from "sharp";
-import { isDemo, requireAdmin, supabaseSession } from "@/lib/auth/server";
+import {
+  get as getBlobObject,
+  issueSignedToken,
+  presignUrl,
+  put as putBlobObject,
+} from "@vercel/blob";
+import {
+  isBlob,
+  isDemo,
+  requireAdmin,
+  supabaseSession,
+} from "@/lib/auth/server";
 import { localRoot, mutateLocal, readLocal } from "@/lib/data/local";
+import { mutateBlob, readBlob } from "@/lib/data/blob";
 import { ServiceError } from "@/lib/validation/artwork";
 export const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
 export const variants = { thumb: 320, room: 1536, detail: 2560 } as const;
 export type Variant = keyof typeof variants;
+const uploadContentTypes = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/avif",
+  "image/heic",
+  "image/heif",
+  "application/octet-stream",
+];
+
+async function createPrivateUrl(pathname: string, operation: "get" | "put") {
+  const validUntil = Date.now() + (operation === "get" ? 60_000 : 15 * 60_000);
+  const constraints =
+    operation === "put"
+      ? {
+          maximumSizeInBytes: MAX_UPLOAD_BYTES,
+          allowedContentTypes: uploadContentTypes,
+          addRandomSuffix: false,
+          allowOverwrite: false,
+        }
+      : {};
+  const signed = await issueSignedToken({
+    pathname,
+    operations: [operation],
+    validUntil,
+    ...constraints,
+  });
+  const { presignedUrl } = await presignUrl(signed, {
+    access: "private",
+    operation,
+    pathname,
+    validUntil,
+    ...constraints,
+  });
+  return presignedUrl;
+}
 export async function processImage(buffer: Buffer) {
   if (buffer.length > MAX_UPLOAD_BYTES)
     throw new ServiceError("Image trop lourde (20 Mio maximum).");
@@ -59,17 +107,36 @@ export async function createUpload(artworkId: string) {
     });
     return { id, url: `/api/admin/upload?id=${id}`, method: "PUT", demo: true };
   }
+  if (isBlob()) {
+    const objectPath = `museum/sources/${artworkId}/${id}/source`;
+    await mutateBlob((data) => {
+      if (!data.artworks.some((a) => a.id === artworkId))
+        throw new ServiceError("Enregistrez le brouillon avant son image.");
+      (data.uploads ??= []).push({
+        id,
+        artworkId,
+        ownerId: admin.id,
+        status: "pending",
+        path: objectPath,
+        createdAt: Date.now(),
+      });
+    });
+    return {
+      id,
+      url: await createPrivateUrl(objectPath, "put"),
+      method: "PUT",
+      demo: false,
+    };
+  }
   const client = await supabaseSession();
   const objectPath = `${admin.id}/${artworkId}/${id}/source`;
-  const { error } = await client
-    .from("media_uploads")
-    .insert({
-      id,
-      artwork_id: artworkId,
-      owner_id: admin.id,
-      path: objectPath,
-      status: "pending",
-    });
+  const { error } = await client.from("media_uploads").insert({
+    id,
+    artwork_id: artworkId,
+    owner_id: admin.id,
+    path: objectPath,
+    status: "pending",
+  });
   if (error) throw new ServiceError("Création du téléversement impossible.");
   const { data, error: signError } = await client.storage
     .from("museum-private")
@@ -168,6 +235,71 @@ export async function completeUpload(id: string) {
       throw error;
     }
   }
+  if (isBlob()) {
+    const data = await readBlob();
+    const upload = data.uploads?.find(
+      (u) => u.id === id && u.ownerId === admin.id && u.status === "pending",
+    );
+    if (!upload) throw new ServiceError("Téléversement introuvable.", 404);
+    try {
+      const source = await getBlobObject(upload.path, {
+        access: "private",
+        useCache: false,
+      });
+      if (!source || source.statusCode !== 200 || !source.stream)
+        throw new ServiceError("Le fichier téléversé est introuvable.");
+      if (source.blob.size > MAX_UPLOAD_BYTES)
+        throw new ServiceError("Image trop lourde.");
+      const original = Buffer.from(
+        await new Response(source.stream).arrayBuffer(),
+      );
+      const decoded = await processImage(original);
+      const base = `museum/media/${upload.artworkId}/${upload.id}`;
+      await Promise.all(
+        decoded.outputs.map((output) =>
+          putBlobObject(`${base}/${output.variant}.webp`, output.buffer, {
+            access: "private",
+            contentType: "image/webp",
+            addRandomSuffix: false,
+            allowOverwrite: true,
+            cacheControlMaxAge: 31536000,
+          }),
+        ),
+      );
+      return await mutateBlob((store) => {
+        const record = store.uploads?.find(
+          (candidate) =>
+            candidate.id === id &&
+            candidate.ownerId === admin.id &&
+            candidate.status === "pending",
+        );
+        const artwork = store.artworks.find(
+          (candidate) => candidate.id === upload.artworkId,
+        );
+        if (!record || !artwork)
+          throw new ServiceError("Téléversement devenu obsolète.", 409);
+        record.status = "ready";
+        artwork.mediaId = id;
+        artwork.imageWidth = decoded.width;
+        artwork.imageHeight = decoded.height;
+        artwork.image = `/api/media/${artwork.id}?variant=room&v=${id}`;
+        artwork.thumbnail = `/api/media/${artwork.id}?variant=thumb&v=${id}`;
+        artwork.detailImage = `/api/media/${artwork.id}?variant=detail&v=${id}`;
+        artwork.revision++;
+        return artwork;
+      });
+    } catch (error) {
+      await mutateBlob((store) => {
+        const record = store.uploads?.find((candidate) => candidate.id === id);
+        if (record?.status === "pending") {
+          record.status = "failed";
+          record.error =
+            "Traitement impossible. Réessayez avec une autre image.";
+        }
+      });
+      throw error;
+    }
+  }
   const client = await supabaseSession();
   const { data: upload, error } = await client
     .from("media_uploads")
@@ -235,6 +367,19 @@ export async function getMedia(id: string, variant: Variant) {
     } catch {
       throw new ServiceError("Image introuvable.", 404);
     }
+  }
+  if (isBlob()) {
+    const store = await readBlob();
+    const artwork = store.artworks.find((candidate) => candidate.id === id);
+    if (!artwork) throw new ServiceError("Image introuvable.", 404);
+    if (artwork.publication !== "published") await requireAdmin();
+    const upload = store.uploads?.find(
+      (candidate) =>
+        candidate.id === artwork.mediaId && candidate.status === "ready",
+    );
+    if (!upload) throw new ServiceError("Image introuvable.", 404);
+    const pathname = `museum/media/${artwork.id}/${upload.id}/${variant}.webp`;
+    return { url: await createPrivateUrl(pathname, "get") };
   }
   const client = await supabaseSession();
   let { data, error } = await client.rpc("get_public_media_path", {

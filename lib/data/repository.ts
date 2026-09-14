@@ -8,11 +8,13 @@ import { headers } from "next/headers";
 import type { AdminArtwork, PublicData, SiteSettings } from "./types";
 import {
   isDemo,
+  isBlob,
   requireAdmin,
   supabaseSession,
   assertLocalHost,
 } from "@/lib/auth/server";
 import { mutateLocal, readLocal } from "./local";
+import { mutateBlob, readBlob } from "./blob";
 import {
   artworkSchema,
   publicArtwork,
@@ -27,6 +29,19 @@ export async function getPublicData(): Promise<PublicData> {
     const data = await readLocal();
     return {
       mode: "demo",
+      settings: data.settings,
+      rooms: data.rooms,
+      artworks: normalizeCollectionOrder(
+        data.artworks.filter((a) => a.publication === "published"),
+        data.rooms,
+      ).map(publicArtwork),
+    };
+  }
+  if (isBlob()) {
+    await headers();
+    const data = await readBlob();
+    return {
+      mode: "blob",
       settings: data.settings,
       rooms: data.rooms,
       artworks: normalizeCollectionOrder(
@@ -54,8 +69,8 @@ export async function getPublicData(): Promise<PublicData> {
 }
 export async function getAdminData() {
   await requireAdmin();
-  if (isDemo()) {
-    const data = await readLocal();
+  if (isDemo() || isBlob()) {
+    const data = isDemo() ? await readLocal() : await readBlob();
     return {
       ...data,
       artworks: normalizeCollectionOrder(data.artworks, data.rooms),
@@ -101,8 +116,9 @@ export async function saveArtwork(raw: unknown) {
   if (!parsed.success)
     throw new ServiceError(parsed.error.issues.map((x) => x.message).join(" "));
   const a = parsed.data;
-  if (isDemo())
-    return mutateLocal((data) => {
+  if (isDemo() || isBlob()) {
+    const mutate = isDemo() ? mutateLocal : mutateBlob;
+    return mutate((data) => {
       const old = data.artworks.find((x) => x.id === a.id);
       if ((old?.revision || 0) !== a.revision)
         throw new ServiceError(
@@ -133,6 +149,7 @@ export async function saveArtwork(raw: unknown) {
       data.artworks = insertInCollection(next, data.artworks, data.rooms);
       return data.artworks.find((x) => x.id === a.id)!;
     });
+  }
   const data = await getAdminData();
   const old = data.artworks.find((x) => x.id === a.id);
   const next = resolvePlacement(
@@ -152,7 +169,10 @@ export async function saveSettings(raw: unknown) {
   const parsed = settingsSchema.safeParse(raw);
   if (!parsed.success)
     throw new ServiceError("Vérifiez les textes et l’adresse email.");
-  if (isDemo()) return mutateLocal((data) => (data.settings = parsed.data));
+  if (isDemo() || isBlob()) {
+    const mutate = isDemo() ? mutateLocal : mutateBlob;
+    return mutate((data) => (data.settings = parsed.data));
+  }
   const client = await supabaseSession();
   const { error } = await client
     .from("site_settings")
@@ -163,14 +183,16 @@ export async function saveSettings(raw: unknown) {
 }
 export async function addRoom() {
   await requireAdmin();
-  if (isDemo())
-    return mutateLocal((data) => {
+  if (isDemo() || isBlob()) {
+    const mutate = isDemo() ? mutateLocal : mutateBlob;
+    return mutate((data) => {
       if (data.rooms.length >= 4)
         throw new ServiceError("Cette version accepte quatre salles.");
       const id = `room-${data.rooms.length + 1}`;
       data.rooms.push(id);
       return id;
     });
+  }
   const client = await supabaseSession();
   const { data, error } = await client.rpc("add_museum_room");
   if (error) throw new ServiceError(error.message, 409);

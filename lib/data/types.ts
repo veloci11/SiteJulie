@@ -51,7 +51,7 @@ export interface SiteSettings {
 export interface PublicData {
   artworks: Artwork[];
   settings: SiteSettings;
-  mode: "demo" | "supabase";
+  mode: "demo" | "supabase" | "blob";
   rooms: string[];
 }
 export type Destination =

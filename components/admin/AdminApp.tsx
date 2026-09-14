@@ -65,9 +65,11 @@ const publications = {
 export default function AdminApp({
   initialData,
   demo,
+  singleAdmin,
 }: {
   initialData: Data | null;
   demo: boolean;
+  singleAdmin: boolean;
 }) {
   const [data, setData] = useState(
     initialData
@@ -273,7 +275,9 @@ export default function AdminApp({
                     demo
                       ? {}
                       : {
-                          email: values.get("email"),
+                          ...(singleAdmin
+                            ? { username: values.get("username") }
+                            : { email: values.get("email") }),
                           password: values.get("password"),
                         },
                   );
@@ -281,7 +285,7 @@ export default function AdminApp({
                 });
               }}
             >
-              {!demo && (
+              {!demo && !singleAdmin && (
                 <>
                   <label>
                     Email
@@ -292,16 +296,29 @@ export default function AdminApp({
                       autoComplete="username"
                     />
                   </label>
-                  <label>
-                    Mot de passe
-                    <input
-                      type="password"
-                      name="password"
-                      required
-                      autoComplete="current-password"
-                    />
-                  </label>
                 </>
+              )}
+              {!demo && singleAdmin && (
+                <label>
+                  Identifiant
+                  <input
+                    type="text"
+                    name="username"
+                    required
+                    autoComplete="username"
+                  />
+                </label>
+              )}
+              {!demo && (
+                <label>
+                  Mot de passe
+                  <input
+                    type="password"
+                    name="password"
+                    required
+                    autoComplete="current-password"
+                  />
+                </label>
               )}
               <button className="admin-primary" disabled={busy}>
                 {busy
@@ -314,8 +331,8 @@ export default function AdminApp({
             </form>
             {demo && (
               <small>
-                Accès de test réservé à localhost. Une authentification Supabase
-                sera requise pour la mise en ligne.
+                Accès de test réservé à localhost. Une connexion sécurisée sera
+                requise pour la mise en ligne.
               </small>
             )}
           </section>

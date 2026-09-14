@@ -14,6 +14,8 @@
     "test": "vitest run",
     "test:e2e": "playwright test",
     "media:prepare": "node scripts/prepare-artworks.mjs",
+    "admin:hash": "node scripts/hash-admin-password.mjs",
+    "blob:seed": "node scripts/seed-vercel-blob.mjs",
     "format": "prettier --write app components lib tests scripts/*.mjs"
   },
   "dependencies": {
@@ -24,6 +26,7 @@
     "@supabase/ssr": "0.9.0",
     "@supabase/supabase-js": "2.99.1",
     "@tailwindcss/postcss": "4.2.1",
+    "@vercel/blob": "^2.8.0",
     "camera-controls": "3.1.2",
     "lucide-react": "0.577.0",
     "next": "16.3.5",

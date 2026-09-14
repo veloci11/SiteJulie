@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 export default function robots(): MetadataRoute.Robots {
   const enabled =
     process.env.MUSEUM_PUBLIC_INDEXING === "1" &&
-    process.env.MUSEUM_DATA_MODE === "supabase";
+    ["supabase", "blob"].includes(process.env.MUSEUM_DATA_MODE || "");
   return {
     rules: {
       userAgent: "*",

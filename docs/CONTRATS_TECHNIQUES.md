@@ -6,7 +6,7 @@ Ces contrats précisent les invariants du produit. Les exemples de noms et types
 
 `MuseumShell` contient la navigation HTML, la gestion de l’URL, l’état de chargement et le carrousel. `MuseumCanvas` est un composant client unique ; `MuseumScene` contient l’environnement, les tableaux et les ancres éditoriales. `CameraDirector` est le seul composant autorisé à piloter les mouvements programmatiques.
 
-`ArtworkRepository` expose les données publiques normalisées, sans secrets ni champs administratifs. Une implémentation de démonstration et une implémentation Supabase partagent ce contrat. Le mode démo doit être explicite et ne doit pas devenir une authentification fictive en production.
+`ArtworkRepository` expose les données publiques normalisées, sans secrets ni champs administratifs. Les implémentations de démonstration, Vercel Blob et Supabase partagent ce contrat. Le mode démo doit être explicite et ne doit pas devenir une authentification fictive en production.
 
 `AdminService` applique validation et autorisation à chaque mutation. `MediaService` gère chargement privé, variantes, droits de lecture et suppression différée. `PublicationService` orchestre traitement média, métadonnées, occupation d’emplacement et invalidation des données publiques.
 
@@ -204,4 +204,4 @@ Documente l’environnement Node, le gestionnaire de paquets, les versions, le d
 
 Ne mets pas les références originales, secrets ou sessions de test dans un dépôt public. Fournis `.env.example` avec des valeurs absentes et un descriptif de chaque variable. Les configurations client et serveur sont séparées. L’URL publique et les origines autorisées viennent de la configuration, pas d’un en-tête utilisateur utilisé aveuglément.
 
-La première livraison peut être testée avec des données démo locales ; elle ne doit pas être décrite comme une production sécurisée déjà raccordée tant que Supabase, les politiques, le compte administrateur et l’hébergement ne sont pas configurés et testés. L’absence d’email réel fourni laisse le contact désactivé avec un message explicite en démo, jamais redirigé vers une personne inventée.
+La première livraison peut être testée avec des données démo locales ; elle ne doit pas être décrite comme une production sécurisée déjà raccordée tant que le stockage persistant privé, le compte administrateur et l’hébergement ne sont pas configurés et testés. L’absence d’email réel fourni laisse le contact désactivé avec un message explicite en démo, jamais redirigé vers une personne inventée.

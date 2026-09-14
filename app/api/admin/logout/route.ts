@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import {
   assertMutationRequest,
+  isBlob,
   isDemo,
   supabaseSession,
 } from "@/lib/auth/server";
@@ -9,6 +10,7 @@ export async function POST(request: Request) {
   try {
     await assertMutationRequest(request);
     if (isDemo()) (await cookies()).delete("museum_demo");
+    else if (isBlob()) (await cookies()).delete("museum_admin");
     else await (await supabaseSession()).auth.signOut();
     return success({ ok: true });
   } catch (e) {

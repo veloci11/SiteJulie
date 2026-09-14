@@ -949,7 +949,7 @@ export default function MuseumShell({
               </Link>
               <div className="visit-demo-note">
                 Version de démonstration · Titres et collections provisoires ·
-                Échelle indicative <Link href="/admin">Administration</Link>
+                Échelle indicative
               </div>
             </nav>
           )}

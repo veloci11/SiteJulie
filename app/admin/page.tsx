@@ -1,6 +1,6 @@
 import AdminApp from "@/components/admin/AdminApp";
 import { getAdminData } from "@/lib/data/repository";
-import { isDemo } from "@/lib/auth/server";
+import { isBlob, isDemo } from "@/lib/auth/server";
 export const dynamic = "force-dynamic";
 export const metadata = {
   title: "Administration · Galerie",
@@ -13,5 +13,5 @@ export default async function AdminPage() {
   } catch {
     /* Login is intentionally the same screen for unavailable/expired sessions. */
   }
-  return <AdminApp initialData={data} demo={isDemo()} />;
+  return <AdminApp initialData={data} demo={isDemo()} singleAdmin={isBlob()} />;
 }

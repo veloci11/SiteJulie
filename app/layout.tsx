@@ -16,10 +16,10 @@ export const metadata: Metadata = {
   robots: {
     index:
       process.env.MUSEUM_PUBLIC_INDEXING === "1" &&
-      process.env.MUSEUM_DATA_MODE === "supabase",
+      ["supabase", "blob"].includes(process.env.MUSEUM_DATA_MODE || ""),
     follow:
       process.env.MUSEUM_PUBLIC_INDEXING === "1" &&
-      process.env.MUSEUM_DATA_MODE === "supabase",
+      ["supabase", "blob"].includes(process.env.MUSEUM_DATA_MODE || ""),
   },
 };
 export default function RootLayout({
