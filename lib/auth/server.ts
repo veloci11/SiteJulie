@@ -39,7 +39,9 @@ export async function assertMutationRequest(request: Request) {
 export async function supabaseSession() {
   const jar = await cookies();
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const key =
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
   if (!url || !key)
     throw new ServiceError("Supabase n’est pas configuré.", 503);
   return createServerClient(url, key, {

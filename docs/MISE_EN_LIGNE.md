@@ -6,6 +6,13 @@ conserve les œuvres, les images privées et les comptes administrateurs.
 
 ## 1. Préparer Supabase
 
+Le projet Vercel **site-julie** peut installer Supabase depuis le Marketplace avec
+le produit **Supabase Postgres backend** à partir de 0 $. L'installation crée la
+ressource et synchronise automatiquement `NEXT_PUBLIC_SUPABASE_URL`,
+`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` et `SUPABASE_SECRET_KEY`. Le site accepte
+aussi les anciens noms `NEXT_PUBLIC_SUPABASE_ANON_KEY` et
+`SUPABASE_SERVICE_ROLE_KEY`.
+
 1. Dans https://supabase.com/dashboard, créer un projet **SiteJulie** sur une offre
    gratuite si le compte dispose encore de cette possibilité, dans une région
    européenne proche du public. Conserver le mot de passe de base dans son
@@ -50,25 +57,26 @@ et le catalogue vide. Elles n’importent pas le contenu de `.local/`.
 1. Dans https://vercel.com/new, choisir l’espace personnel demandé, puis importer
    **veloci11/SiteJulie**. Si le dépôt n’apparaît pas, ouvrir les réglages de
    l’intégration GitHub et donner accès uniquement à **SiteJulie**.
-2. Nom du projet : `sitejulie`. Framework : **Next.js**. Root Directory : `./`.
+2. Nom du projet : `site-julie`. Framework : **Next.js**. Root Directory : `./`.
    Node.js : **24.x**. Le dépôt définit déjà `npm ci` et `npm run build:vercel`.
    Laisser l’Output Directory sur la valeur automatique de Next.js.
 3. Dans **Environment Variables**, définir les variables suivantes :
 
-   | Variable | Valeur |
-   |---|---|
-   | `MUSEUM_DATA_MODE` | `supabase` |
-   | `NEXT_PUBLIC_SUPABASE_URL` | Project URL de Supabase |
-   | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Clé publique `anon` ou `sb_publishable_…` |
-   | `SUPABASE_SERVICE_ROLE_KEY` | Clé serveur `service_role` ou `sb_secret_…` |
-   | `NEXT_PUBLIC_SITE_URL` | `https://juliethiam.art` |
-   | `MUSEUM_PUBLIC_INDEXING` | `0` pendant la préparation ; `1` après validation |
+   | Variable                                                                  | Valeur                                            |
+   | ------------------------------------------------------------------------- | ------------------------------------------------- |
+   | `MUSEUM_DATA_MODE`                                                        | `supabase`                                        |
+   | `NEXT_PUBLIC_SUPABASE_URL`                                                | Project URL de Supabase                           |
+   | `NEXT_PUBLIC_SUPABASE_ANON_KEY` ou `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Clé publique `anon` ou `sb_publishable_…`         |
+   | `SUPABASE_SERVICE_ROLE_KEY` ou `SUPABASE_SECRET_KEY`                      | Clé serveur `service_role` ou `sb_secret_…`       |
+   | `NEXT_PUBLIC_SITE_URL`                                                    | `https://juliethiam.art`                          |
+   | `MUSEUM_PUBLIC_INDEXING`                                                  | `0` pendant la préparation ; `1` après validation |
 
    Ne pas recopier `MUSEUM_LOCAL_PREVIEW`, `MUSEUM_LOCAL_DATA_DIR`, `.env.local`
    ni les fichiers de `.local/`. Le contrôle de build refuse le mode local et
    les variables manquantes, plutôt que de déployer un catalogue non configuré.
    Utiliser une base séparée pour les futures prévisualisations de branches :
    une prévisualisation liée à la base publique modifierait les mêmes œuvres.
+
 4. Cliquer **Deploy** et attendre le statut **Ready**. Une modification de variable
    d’environnement nécessite un nouveau déploiement.
 5. Sur l’adresse `.vercel.app` obtenue, ouvrir `/admin`, se connecter au compte
@@ -99,7 +107,7 @@ retrouver intégralement ce comportement local. Ne pas activer la démo pour con
 
 Faire cette étape une fois l’adresse Vercel fonctionnelle et le contenu vérifié.
 
-1. Vercel → projet **sitejulie** → **Settings → Domains** : ajouter
+1. Vercel → projet **site-julie** → **Settings → Domains** : ajouter
    `juliethiam.art` puis `www.juliethiam.art`. Choisir le domaine sans `www` comme
    adresse principale et rediriger `www` vers celui-ci.
 2. Vercel affiche les enregistrements DNS exacts attendus. Copier ces valeurs :
@@ -109,12 +117,12 @@ Faire cette étape une fois l’adresse Vercel fonctionnelle et le contenu véri
    Infomaniak ; aucun transfert de domaine n’est nécessaire.
 4. Modifier uniquement les enregistrements web concernés :
 
-   | Nom | Type | Action |
-   |---|---|---|
-   | `@` / domaine racine | `A` | Remplacer la cible par celle indiquée par Vercel |
-   | `@` / domaine racine | `AAAA` | Ne pas conserver l’ancienne cible Infomaniak si Vercel ne fournit pas de cible IPv6 correspondante |
-   | `www` | `CNAME` | Mettre la cible exacte indiquée par Vercel ; résoudre les éventuels A/AAAA existants à ce même nom |
-   | Nom fourni par Vercel | `TXT` | Ajouter uniquement si une vérification de propriété est demandée |
+   | Nom                   | Type    | Action                                                                                             |
+   | --------------------- | ------- | -------------------------------------------------------------------------------------------------- |
+   | `@` / domaine racine  | `A`     | Remplacer la cible par celle indiquée par Vercel                                                   |
+   | `@` / domaine racine  | `AAAA`  | Ne pas conserver l’ancienne cible Infomaniak si Vercel ne fournit pas de cible IPv6 correspondante |
+   | `www`                 | `CNAME` | Mettre la cible exacte indiquée par Vercel ; résoudre les éventuels A/AAAA existants à ce même nom |
+   | Nom fourni par Vercel | `TXT`   | Ajouter uniquement si une vérification de propriété est demandée                                   |
 
 5. Préserver les **MX**, SPF, DKIM, DMARC et les sous-domaines de messagerie.
    Au contrôle du 14 septembre 2026, le domaine avait un MX Infomaniak et des
@@ -136,6 +144,7 @@ Faire cette étape une fois l’adresse Vercel fonctionnelle et le contenu véri
   Supabase restent à surveiller ; une offre gratuite n’est pas illimitée.
 
 Documentation officielle :
+
 - https://vercel.com/docs/domains/working-with-domains/add-a-domain
 - https://www.infomaniak.com/fr/support/faq/admin2/domaine
 - https://supabase.com/docs/guides/auth/general-configuration

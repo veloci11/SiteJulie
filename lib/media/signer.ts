@@ -3,7 +3,8 @@ import { createClient } from "@supabase/supabase-js";
 import { ServiceError } from "@/lib/validation/artwork";
 export async function signApprovedPath(path: string) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const key =
+    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
   if (!url || !key)
     throw new ServiceError("Signature privée non configurée.", 503);
   if (
@@ -28,7 +29,8 @@ export async function finalizeProcessedUpload(
   verifiedActor: string,
 ) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const key =
+    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
   if (!url || !key)
     throw new ServiceError("Traitement privé non configuré.", 503);
   const client = createClient(url, key, {
