@@ -1,0 +1,30 @@
+{
+  "module": "hall",
+  "refinement": {
+    "internalFacesRemoved": 132,
+    "vaultRibsLowered": 4,
+    "ribShiftMeters": 0.055,
+    "mortarTopY": 0.004,
+    "jointDepthMeters": 0.0025
+  },
+  "originalAtlasFacesMatched": true,
+  "atlases": [
+    {
+      "group": "walls",
+      "size": 2048,
+      "radianceScale": 6.0,
+      "path": "/museum/clean/hall-walls-light.png",
+      "containsAlbedo": false,
+      "containsNormalDetail": false
+    }
+  ],
+  "wallColorLinear": [
+    0.68,
+    0.57,
+    0.44
+  ],
+  "capSeparate": false,
+  "floorRadianceScale": 1.75,
+  "bytes": 2350284,
+  "seconds": 44.89937376976013
+}

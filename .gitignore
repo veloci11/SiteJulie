@@ -1,0 +1,34 @@
+# Dépendances et sorties de compilation
+node_modules/
+.next/
+out/
+dist/
+.env
+.env.*
+!.env.example
+playwright-report/
+test-results/
+# Les originaux fournis restent du matériel de travail privé.
+references/artworks/*.jpg
+references/artworks/*.JPG
+# Ne jamais versionner les sessions d’authentification de test.
+playwright/.auth/
+
+# User source material and private runtime state
+ImageOeuvre/
+references/
+.local/
+assets/*.blend*
+assets/
+artifacts/
+.vercel/
+.next-*/
+.DS_Store
+**/.DS_Store
+__pycache__/
+*.pyc
+*.log
+docs/captures/
+playwright-report/
+test-results/
+*.tsbuildinfo

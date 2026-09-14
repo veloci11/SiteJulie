@@ -1,0 +1,358 @@
+{
+  "interfacePrecision": {
+    "clearedSpandrelPanels": 96,
+    "radialMasonryClearanceMeters": 0.035,
+    "shortenedPlinthEnds": 4,
+    "plinthClearanceMeters": 0.02
+  },
+  "module": "extension",
+  "closedCeiling": true,
+  "removedOldTreeMeshes": [
+    "Architecture \u00b7 Skylight glass",
+    "Architecture \u00b7 Olive bark",
+    "Architecture \u00b7 Olive leaves 0",
+    "Architecture \u00b7 Olive leaves 1",
+    "Architecture \u00b7 Olive leaves 2"
+  ],
+  "refinement": {
+    "internalFacesRemoved": 176,
+    "vaultRibsLowered": 0,
+    "mortarTopY": 0.004
+  },
+  "atlases": [
+    {
+      "group": "walls",
+      "size": 2048,
+      "radianceScale": 7.25,
+      "path": "/museum/interior/extension-walls-light.png"
+    },
+    {
+      "group": "floor",
+      "size": 2048,
+      "radianceScale": 2.5,
+      "path": "/museum/interior/extension-floor-light.png"
+    },
+    {
+      "group": "furniture",
+      "size": 2048,
+      "radianceScale": 9.0,
+      "path": "/museum/interior/extension-furniture-light.png"
+    },
+    {
+      "group": "cap",
+      "size": 512,
+      "radianceScale": 1.25,
+      "path": "/museum/interior/extension-cap-light.png"
+    }
+  ],
+  "surfaces": [
+    {
+      "name": "LIGHTMAP extension walls",
+      "kind": null,
+      "colorLinear": [
+        0.7,
+        0.6,
+        0.47
+      ],
+      "periodMeters": 1,
+      "roughness": 0.92,
+      "normalStrength": 0.0
+    },
+    {
+      "name": "LIGHTMAP extension walls",
+      "kind": null,
+      "colorLinear": [
+        0.7,
+        0.6,
+        0.47
+      ],
+      "periodMeters": 1,
+      "roughness": 0.92,
+      "normalStrength": 0.0
+    },
+    {
+      "name": "LIGHTMAP extension walls",
+      "kind": null,
+      "colorLinear": [
+        0.7,
+        0.6,
+        0.47
+      ],
+      "periodMeters": 1,
+      "roughness": 0.92,
+      "normalStrength": 0
+    },
+    {
+      "name": "SURFACE extension mortar 0",
+      "kind": "mortar",
+      "colorLinear": [
+        0.59,
+        0.51,
+        0.4
+      ],
+      "periodMeters": 1,
+      "roughness": 0.9,
+      "normalStrength": 0
+    },
+    {
+      "name": "SURFACE extension stone 1",
+      "kind": "stone",
+      "colorLinear": [
+        0.85,
+        0.83,
+        0.77
+      ],
+      "periodMeters": 1.2,
+      "roughness": 0.82,
+      "normalStrength": 0.14
+    },
+    {
+      "name": "SURFACE extension stone 2",
+      "kind": "stone",
+      "colorLinear": [
+        0.85,
+        0.83,
+        0.77
+      ],
+      "periodMeters": 1.2,
+      "roughness": 0.82,
+      "normalStrength": 0.14
+    },
+    {
+      "name": "SURFACE extension stone 3",
+      "kind": "stone",
+      "colorLinear": [
+        0.85,
+        0.83,
+        0.77
+      ],
+      "periodMeters": 1.2,
+      "roughness": 0.82,
+      "normalStrength": 0.14
+    },
+    {
+      "name": "SURFACE extension stone 4",
+      "kind": "stone",
+      "colorLinear": [
+        0.85,
+        0.83,
+        0.77
+      ],
+      "periodMeters": 1.2,
+      "roughness": 0.82,
+      "normalStrength": 0.14
+    },
+    {
+      "name": "SURFACE extension stone 5",
+      "kind": "stone",
+      "colorLinear": [
+        0.72,
+        0.74,
+        0.76
+      ],
+      "periodMeters": 1.2,
+      "roughness": 0.54,
+      "normalStrength": 0.12
+    },
+    {
+      "name": "SURFACE extension stone 6",
+      "kind": "stone",
+      "colorLinear": [
+        0.85,
+        0.83,
+        0.77
+      ],
+      "periodMeters": 1.2,
+      "roughness": 0.82,
+      "normalStrength": 0.14
+    },
+    {
+      "name": "SURFACE extension ceramic 0",
+      "kind": "ceramic",
+      "colorLinear": [
+        0.42,
+        0.23,
+        0.12
+      ],
+      "periodMeters": 1,
+      "roughness": 0.56,
+      "normalStrength": 0
+    },
+    {
+      "name": "SURFACE extension wood 1",
+      "kind": "wood",
+      "colorLinear": [
+        0.42,
+        0.25,
+        0.13
+      ],
+      "periodMeters": 1,
+      "roughness": 0.62,
+      "normalStrength": 0.25
+    },
+    {
+      "name": "SURFACE extension jute 2",
+      "kind": "jute",
+      "colorLinear": [
+        0.83,
+        0.67,
+        0.44
+      ],
+      "periodMeters": 0.12,
+      "roughness": 0.96,
+      "normalStrength": 0.2
+    },
+    {
+      "name": "SURFACE extension jute 3",
+      "kind": "jute",
+      "colorLinear": [
+        0.66,
+        0.48,
+        0.28
+      ],
+      "periodMeters": 0.12,
+      "roughness": 0.96,
+      "normalStrength": 0.2
+    },
+    {
+      "name": "SURFACE extension linen 4",
+      "kind": "linen",
+      "colorLinear": [
+        0.88,
+        0.82,
+        0.72
+      ],
+      "periodMeters": 0.032,
+      "roughness": 0.94,
+      "normalStrength": 0.12
+    },
+    {
+      "name": "SURFACE extension book 5",
+      "kind": "book",
+      "colorLinear": [
+        0.25,
+        0.29,
+        0.14
+      ],
+      "periodMeters": 1,
+      "roughness": 0.82,
+      "normalStrength": 0
+    },
+    {
+      "name": "SURFACE extension paper 6",
+      "kind": "paper",
+      "colorLinear": [
+        0.77,
+        0.71,
+        0.6
+      ],
+      "periodMeters": 1,
+      "roughness": 0.9,
+      "normalStrength": 0
+    },
+    {
+      "name": "SURFACE extension book 7",
+      "kind": "book",
+      "colorLinear": [
+        0.39,
+        0.22,
+        0.11
+      ],
+      "periodMeters": 1,
+      "roughness": 0.82,
+      "normalStrength": 0
+    },
+    {
+      "name": "SURFACE extension book 8",
+      "kind": "book",
+      "colorLinear": [
+        0.53,
+        0.4,
+        0.24
+      ],
+      "periodMeters": 1,
+      "roughness": 0.82,
+      "normalStrength": 0
+    },
+    {
+      "name": "SURFACE extension ceramic 9",
+      "kind": "ceramic",
+      "colorLinear": [
+        0.53,
+        0.4,
+        0.24
+      ],
+      "periodMeters": 1,
+      "roughness": 0.4,
+      "normalStrength": 0
+    },
+    {
+      "name": "SURFACE extension stone 10",
+      "kind": "stone",
+      "colorLinear": [
+        0.79,
+        0.76,
+        0.68
+      ],
+      "periodMeters": 1.2,
+      "roughness": 0.78,
+      "normalStrength": 0.12
+    },
+    {
+      "name": "SURFACE extension soil 11",
+      "kind": "soil",
+      "colorLinear": [
+        0.1,
+        0.075,
+        0.045
+      ],
+      "periodMeters": 1,
+      "roughness": 1,
+      "normalStrength": 0
+    },
+    {
+      "name": "SURFACE extension stone 12",
+      "kind": "stone",
+      "colorLinear": [
+        0.94,
+        0.91,
+        0.8
+      ],
+      "periodMeters": 0.7,
+      "roughness": 0.68,
+      "normalStrength": 0.1
+    },
+    {
+      "name": "LIGHTMAP extension cap",
+      "kind": null,
+      "colorLinear": [
+        0.7,
+        0.6,
+        0.47
+      ],
+      "periodMeters": 1,
+      "roughness": 0.92,
+      "normalStrength": 0
+    }
+  ],
+  "wallEdgeUV": {
+    "protectedWallFaces": 2316,
+    "minimumAtlasWidthPixels": 2.3,
+    "sampleSupportPixels": 3.5
+  },
+  "floorBevelUV": {
+    "tileCount": 396,
+    "retargetedFaces": 12672,
+    "retargetedLoops": 50688,
+    "insetMeters": 0.035
+  },
+  "bytes": 1782716,
+  "seconds": 148.88339614868164,
+  "mortarUV": {
+    "cells": 396,
+    "topY": 0.004,
+    "planeBoundsChanged": false,
+    "addedTriangles": 790,
+    "samples": "adjacent slab exposed radiance; local furniture/tree shadows retained"
+  }
+}

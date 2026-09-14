@@ -1,0 +1,20 @@
+{
+  "stone": {
+    "periodMeters": 1.2,
+    "source": "ambientCG Travertine009 CC0"
+  },
+  "wood": {
+    "periodMeters": 1,
+    "source": "Poly Haven natural_walnut_veneer CC0"
+  },
+  "linen": {
+    "periodMeters": 0.032,
+    "source": "Original procedural interlaced weave",
+    "normalStrength": 0.12
+  },
+  "jute": {
+    "periodMeters": 0.12,
+    "source": "Original procedural interlaced weave",
+    "normalStrength": 0.2
+  }
+}

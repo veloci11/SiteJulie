@@ -1,0 +1,328 @@
+{
+  "interfacePrecision": {
+    "clearedSpandrelPanels": 72,
+    "radialMasonryClearanceMeters": 0.035,
+    "shortenedPlinthEnds": 4,
+    "plinthClearanceMeters": 0.02
+  },
+  "module": "hall",
+  "closedCeiling": true,
+  "removedOldTreeMeshes": [
+    "Architecture \u00b7 Skylight glass",
+    "Architecture \u00b7 Olive bark",
+    "Architecture \u00b7 Olive leaves 0",
+    "Architecture \u00b7 Olive leaves 1",
+    "Architecture \u00b7 Olive leaves 2"
+  ],
+  "refinement": {
+    "internalFacesRemoved": 132,
+    "vaultRibsLowered": 4,
+    "mortarTopY": 0.004
+  },
+  "atlases": [
+    {
+      "group": "walls",
+      "size": 2048,
+      "radianceScale": 5.0,
+      "path": "/museum/interior/hall-walls-light.png"
+    },
+    {
+      "group": "floor",
+      "size": 2048,
+      "radianceScale": 3.5,
+      "path": "/museum/interior/hall-floor-light.png"
+    },
+    {
+      "group": "furniture",
+      "size": 2048,
+      "radianceScale": 4.0,
+      "path": "/museum/interior/hall-furniture-light.png"
+    }
+  ],
+  "surfaces": [
+    {
+      "name": "LIGHTMAP hall walls",
+      "kind": null,
+      "colorLinear": [
+        0.73,
+        0.65,
+        0.53
+      ],
+      "periodMeters": 1,
+      "roughness": 0.92,
+      "normalStrength": 0.0
+    },
+    {
+      "name": "LIGHTMAP hall walls",
+      "kind": null,
+      "colorLinear": [
+        0.73,
+        0.65,
+        0.53
+      ],
+      "periodMeters": 1,
+      "roughness": 0.92,
+      "normalStrength": 0.0
+    },
+    {
+      "name": "LIGHTMAP hall walls",
+      "kind": null,
+      "colorLinear": [
+        0.73,
+        0.65,
+        0.53
+      ],
+      "periodMeters": 1,
+      "roughness": 0.92,
+      "normalStrength": 0.0
+    },
+    {
+      "name": "SURFACE hall mortar 0",
+      "kind": "mortar",
+      "colorLinear": [
+        0.59,
+        0.51,
+        0.4
+      ],
+      "periodMeters": 1,
+      "roughness": 0.9,
+      "normalStrength": 0
+    },
+    {
+      "name": "SURFACE hall stone 1",
+      "kind": "stone",
+      "colorLinear": [
+        0.83,
+        0.87,
+        0.92
+      ],
+      "periodMeters": 1.2,
+      "roughness": 0.82,
+      "normalStrength": 0.14
+    },
+    {
+      "name": "SURFACE hall stone 2",
+      "kind": "stone",
+      "colorLinear": [
+        0.83,
+        0.87,
+        0.92
+      ],
+      "periodMeters": 1.2,
+      "roughness": 0.82,
+      "normalStrength": 0.14
+    },
+    {
+      "name": "SURFACE hall stone 3",
+      "kind": "stone",
+      "colorLinear": [
+        0.83,
+        0.87,
+        0.92
+      ],
+      "periodMeters": 1.2,
+      "roughness": 0.82,
+      "normalStrength": 0.14
+    },
+    {
+      "name": "SURFACE hall stone 4",
+      "kind": "stone",
+      "colorLinear": [
+        0.83,
+        0.87,
+        0.92
+      ],
+      "periodMeters": 1.2,
+      "roughness": 0.82,
+      "normalStrength": 0.14
+    },
+    {
+      "name": "SURFACE hall stone 5",
+      "kind": "stone",
+      "colorLinear": [
+        0.72,
+        0.74,
+        0.76
+      ],
+      "periodMeters": 1.2,
+      "roughness": 0.54,
+      "normalStrength": 0.12
+    },
+    {
+      "name": "SURFACE hall ceramic 0",
+      "kind": "ceramic",
+      "colorLinear": [
+        0.42,
+        0.23,
+        0.12
+      ],
+      "periodMeters": 1,
+      "roughness": 0.56,
+      "normalStrength": 0
+    },
+    {
+      "name": "SURFACE hall wood 1",
+      "kind": "wood",
+      "colorLinear": [
+        0.42,
+        0.25,
+        0.13
+      ],
+      "periodMeters": 1,
+      "roughness": 0.62,
+      "normalStrength": 0.25
+    },
+    {
+      "name": "SURFACE hall jute 2",
+      "kind": "jute",
+      "colorLinear": [
+        0.83,
+        0.67,
+        0.44
+      ],
+      "periodMeters": 0.12,
+      "roughness": 0.96,
+      "normalStrength": 0.2
+    },
+    {
+      "name": "SURFACE hall jute 3",
+      "kind": "jute",
+      "colorLinear": [
+        0.66,
+        0.48,
+        0.28
+      ],
+      "periodMeters": 0.12,
+      "roughness": 0.96,
+      "normalStrength": 0.2
+    },
+    {
+      "name": "SURFACE hall linen 4",
+      "kind": "linen",
+      "colorLinear": [
+        0.88,
+        0.82,
+        0.72
+      ],
+      "periodMeters": 0.032,
+      "roughness": 0.94,
+      "normalStrength": 0.12
+    },
+    {
+      "name": "SURFACE hall book 5",
+      "kind": "book",
+      "colorLinear": [
+        0.25,
+        0.29,
+        0.14
+      ],
+      "periodMeters": 1,
+      "roughness": 0.82,
+      "normalStrength": 0
+    },
+    {
+      "name": "SURFACE hall paper 6",
+      "kind": "paper",
+      "colorLinear": [
+        0.77,
+        0.71,
+        0.6
+      ],
+      "periodMeters": 1,
+      "roughness": 0.9,
+      "normalStrength": 0
+    },
+    {
+      "name": "SURFACE hall book 7",
+      "kind": "book",
+      "colorLinear": [
+        0.39,
+        0.22,
+        0.11
+      ],
+      "periodMeters": 1,
+      "roughness": 0.82,
+      "normalStrength": 0
+    },
+    {
+      "name": "SURFACE hall book 8",
+      "kind": "book",
+      "colorLinear": [
+        0.53,
+        0.4,
+        0.24
+      ],
+      "periodMeters": 1,
+      "roughness": 0.82,
+      "normalStrength": 0
+    },
+    {
+      "name": "SURFACE hall ceramic 9",
+      "kind": "ceramic",
+      "colorLinear": [
+        0.53,
+        0.4,
+        0.24
+      ],
+      "periodMeters": 1,
+      "roughness": 0.4,
+      "normalStrength": 0
+    },
+    {
+      "name": "SURFACE hall stone 10",
+      "kind": "stone",
+      "colorLinear": [
+        0.79,
+        0.76,
+        0.68
+      ],
+      "periodMeters": 1.2,
+      "roughness": 0.78,
+      "normalStrength": 0.12
+    },
+    {
+      "name": "SURFACE hall soil 11",
+      "kind": "soil",
+      "colorLinear": [
+        0.1,
+        0.075,
+        0.045
+      ],
+      "periodMeters": 1,
+      "roughness": 1,
+      "normalStrength": 0
+    },
+    {
+      "name": "SURFACE hall stone 12",
+      "kind": "stone",
+      "colorLinear": [
+        0.94,
+        0.91,
+        0.8
+      ],
+      "periodMeters": 0.7,
+      "roughness": 0.68,
+      "normalStrength": 0.1
+    }
+  ],
+  "wallEdgeUV": {
+    "protectedWallFaces": 2530,
+    "minimumAtlasWidthPixels": 2.3,
+    "sampleSupportPixels": 3.5
+  },
+  "floorBevelUV": {
+    "tileCount": 225,
+    "retargetedFaces": 7200,
+    "retargetedLoops": 28800,
+    "insetMeters": 0.035
+  },
+  "bytes": 1577900,
+  "seconds": 155.35996007919312,
+  "mortarUV": {
+    "cells": 225,
+    "topY": 0.004,
+    "planeBoundsChanged": false,
+    "addedTriangles": 448,
+    "samples": "adjacent slab exposed radiance; local furniture/tree shadows retained"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "stone": {
+    "periodMeters": 1.2,
+    "source": "ambientCG Travertine009 CC0; restrained limestone derivative",
+    "change": "linear luminance variation14%; neutral stone albedo [.72,.70,.66]; roughness map .894"
+  },
+  "wood": {
+    "periodMeters": 0.6,
+    "linearContrast": 0.32,
+    "normalStrength": 0.055,
+    "source": "Poly Haven natural_walnut_veneer CC0"
+  },
+  "linen": {
+    "periodMeters": 0.032,
+    "source": "Original procedural interlaced weave"
+  }
+}

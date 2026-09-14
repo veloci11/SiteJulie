@@ -1,0 +1,432 @@
+{
+  "authoredLatheWinding": "outward",
+  "interfacePrecision": {
+    "continuousApertureMesh": true,
+    "legacyArchesRemoved": true,
+    "buriedWallFootVertices": 1048,
+    "wallFootLoweringMeters": 0.05,
+    "wallDetailObjects": [
+      {
+        "name": "Floor to ceiling walnut insert slim backing",
+        "vertices": 216,
+        "min": [
+          -5.8480000495910645,
+          0.0,
+          3.450000047683716
+        ],
+        "max": [
+          -5.834000110626221,
+          5.699999809265137,
+          4.550000190734863
+        ]
+      },
+      {
+        "name": "Floor to ceiling walnut insert continuous smooth veneer",
+        "vertices": 216,
+        "min": [
+          -5.833000183105469,
+          0.0009999275207519531,
+          3.451000213623047
+        ],
+        "max": [
+          -5.807000160217285,
+          5.698999881744385,
+          3.815666675567627
+        ]
+      },
+      {
+        "name": "Floor to ceiling walnut insert continuous smooth veneer.001",
+        "vertices": 216,
+        "min": [
+          -5.833000183105469,
+          0.0009999275207519531,
+          3.81766676902771
+        ],
+        "max": [
+          -5.807000160217285,
+          5.698999881744385,
+          4.182333469390869
+        ]
+      },
+      {
+        "name": "Floor to ceiling walnut insert continuous smooth veneer.002",
+        "vertices": 216,
+        "min": [
+          -5.833000183105469,
+          0.0009999275207519531,
+          4.184333324432373
+        ],
+        "max": [
+          -5.807000160217285,
+          5.698999881744385,
+          4.549000263214111
+        ]
+      }
+    ]
+  },
+  "module": "extension",
+  "closedCeiling": true,
+  "trees": [
+    {
+      "position": [
+        0.55,
+        0.02,
+        -1.35
+      ],
+      "scale": 1,
+      "rotationY": 2.8,
+      "potRadius": 0.48,
+      "potHeight": 0.76,
+      "soilY": 0.72,
+      "asset": "/museum/fig-central.glb"
+    }
+  ],
+  "partitions": [],
+  "wallDetails": [
+    {
+      "name": "Floor to ceiling walnut insert",
+      "position": [
+        -5.8175,
+        2.85,
+        4.0
+      ],
+      "size": [
+        0.065,
+        5.7,
+        1.1
+      ],
+      "style": "walnut-insert"
+    }
+  ],
+  "terminalWall": true,
+  "removedLegacyMeshes": [
+    "Architecture \u00b7 Salon earth plaster",
+    "Architecture \u00b7 Salon cove plaster",
+    "Architecture \u00b7 Warm travertine base",
+    "Architecture \u00b7 Burnished terracotta",
+    "Architecture \u00b7 Natural walnut grain",
+    "Architecture \u00b7 Skylight glass",
+    "Architecture \u00b7 Warm lamp diffuser",
+    "Architecture \u00b7 Woven natural jute",
+    "Architecture \u00b7 Jute ochre border",
+    "Architecture \u00b7 Natural linen",
+    "Architecture \u00b7 Plain book cover 0",
+    "Architecture \u00b7 Natural book paper",
+    "Architecture \u00b7 Plain book cover 1",
+    "Architecture \u00b7 Plain book cover 2",
+    "Architecture \u00b7 Sand ceramic glaze",
+    "Architecture \u00b7 Travertine planter",
+    "Architecture \u00b7 Olive bark",
+    "Architecture \u00b7 Olive leaves 0",
+    "Architecture \u00b7 Olive leaves 1",
+    "Architecture \u00b7 Olive leaves 2",
+    "Architecture \u00b7 Original limestone sculpture"
+  ],
+  "refinement": {
+    "internalFacesRemoved": 0,
+    "vaultRibsLowered": 0,
+    "mortarTopY": 0.004
+  },
+  "atlases": [
+    {
+      "group": "walls",
+      "size": 2048,
+      "radianceScale": 2.5,
+      "path": "/museum/contemporary/extension-terminal-walls-light.png"
+    },
+    {
+      "group": "floor",
+      "size": 2048,
+      "radianceScale": 1,
+      "path": "/museum/contemporary/extension-terminal-floor-light.png"
+    },
+    {
+      "group": "furniture",
+      "size": 2048,
+      "radianceScale": 2.5,
+      "path": "/museum/contemporary/extension-terminal-furniture-light.png"
+    }
+  ],
+  "surfaces": [
+    {
+      "name": "LIGHTMAP extension walls",
+      "kind": null,
+      "colorLinear": [
+        0.63,
+        0.485,
+        0.385
+      ],
+      "periodMeters": 1,
+      "roughness": 0.92,
+      "normalStrength": 0.0
+    },
+    {
+      "name": "LIGHTMAP extension walls",
+      "kind": null,
+      "colorLinear": [
+        0.74,
+        0.74,
+        0.71
+      ],
+      "periodMeters": 1,
+      "roughness": 0.95,
+      "normalStrength": 0
+    },
+    {
+      "name": "LIGHTMAP extension walls",
+      "kind": null,
+      "colorLinear": [
+        0.53,
+        0.335,
+        0.25
+      ],
+      "periodMeters": 1,
+      "roughness": 0.95,
+      "normalStrength": 0
+    },
+    {
+      "name": "SURFACE extension mortar 0",
+      "kind": "mortar",
+      "colorLinear": [
+        0.45,
+        0.422,
+        0.375
+      ],
+      "periodMeters": 1,
+      "roughness": 0.9,
+      "normalStrength": 0
+    },
+    {
+      "name": "SURFACE extension stone 1",
+      "kind": "stone",
+      "colorLinear": [
+        0.66,
+        0.615,
+        0.56
+      ],
+      "periodMeters": 1.2,
+      "roughness": 0.78,
+      "normalStrength": 0.12
+    },
+    {
+      "name": "SURFACE extension stone 2",
+      "kind": "stone",
+      "colorLinear": [
+        0.66,
+        0.615,
+        0.56
+      ],
+      "periodMeters": 1.2,
+      "roughness": 0.78,
+      "normalStrength": 0.12
+    },
+    {
+      "name": "SURFACE extension stone 3",
+      "kind": "stone",
+      "colorLinear": [
+        0.66,
+        0.615,
+        0.56
+      ],
+      "periodMeters": 1.2,
+      "roughness": 0.78,
+      "normalStrength": 0.12
+    },
+    {
+      "name": "SURFACE extension stone 4",
+      "kind": "stone",
+      "colorLinear": [
+        0.66,
+        0.615,
+        0.56
+      ],
+      "periodMeters": 1.2,
+      "roughness": 0.78,
+      "normalStrength": 0.12
+    },
+    {
+      "name": "SURFACE extension stone 5",
+      "kind": "stone",
+      "colorLinear": [
+        0.66,
+        0.615,
+        0.56
+      ],
+      "periodMeters": 1.2,
+      "roughness": 0.78,
+      "normalStrength": 0.12
+    },
+    {
+      "name": "SURFACE extension stone 0",
+      "kind": "stone",
+      "colorLinear": [
+        0.56,
+        0.38,
+        0.27
+      ],
+      "periodMeters": 1.2,
+      "roughness": 0.85,
+      "normalStrength": 0.12
+    },
+    {
+      "name": "SURFACE extension wood 1",
+      "kind": "wood",
+      "colorLinear": [
+        0.61,
+        0.39,
+        0.25
+      ],
+      "periodMeters": 0.6,
+      "roughness": 0.84,
+      "normalStrength": 0.055
+    },
+    {
+      "name": "SURFACE extension linen 2",
+      "kind": "linen",
+      "colorLinear": [
+        0.53,
+        0.33,
+        0.235
+      ],
+      "periodMeters": 0.032,
+      "roughness": 0.96,
+      "normalStrength": 0.12
+    },
+    {
+      "name": "SURFACE extension metal 3",
+      "kind": "metal",
+      "colorLinear": [
+        0.045,
+        0.048,
+        0.052
+      ],
+      "periodMeters": 1,
+      "roughness": 0.55,
+      "normalStrength": 0
+    },
+    {
+      "name": "SURFACE extension soil 4",
+      "kind": "soil",
+      "colorLinear": [
+        0.1,
+        0.075,
+        0.045
+      ],
+      "periodMeters": 1,
+      "roughness": 1,
+      "normalStrength": 0
+    },
+    {
+      "name": "SURFACE extension paper 5",
+      "kind": "paper",
+      "colorLinear": [
+        0.77,
+        0.71,
+        0.6
+      ],
+      "periodMeters": 1,
+      "roughness": 0.9,
+      "normalStrength": 0
+    },
+    {
+      "name": "SURFACE extension book 6",
+      "kind": "book",
+      "colorLinear": [
+        0.25,
+        0.29,
+        0.14
+      ],
+      "periodMeters": 1,
+      "roughness": 0.82,
+      "normalStrength": 0
+    },
+    {
+      "name": "SURFACE extension book 7",
+      "kind": "book",
+      "colorLinear": [
+        0.39,
+        0.22,
+        0.11
+      ],
+      "periodMeters": 1,
+      "roughness": 0.82,
+      "normalStrength": 0
+    },
+    {
+      "name": "SURFACE extension book 8",
+      "kind": "book",
+      "colorLinear": [
+        0.53,
+        0.4,
+        0.24
+      ],
+      "periodMeters": 1,
+      "roughness": 0.82,
+      "normalStrength": 0
+    },
+    {
+      "name": "SURFACE extension wood 9",
+      "kind": "wood",
+      "colorLinear": [
+        0.61,
+        0.39,
+        0.25
+      ],
+      "periodMeters": 0.6,
+      "roughness": 0.84,
+      "normalStrength": 0.055
+    },
+    {
+      "name": "SURFACE extension ceramic 10",
+      "kind": "ceramic",
+      "colorLinear": [
+        0.42,
+        0.23,
+        0.12
+      ],
+      "periodMeters": 1,
+      "roughness": 0.56,
+      "normalStrength": 0
+    },
+    {
+      "name": "SURFACE extension stone 11",
+      "kind": "stone",
+      "colorLinear": [
+        0.94,
+        0.91,
+        0.8
+      ],
+      "periodMeters": 0.7,
+      "roughness": 0.68,
+      "normalStrength": 0.1
+    }
+  ],
+  "treeAssetSHA256": {
+    "/museum/fig-central.glb": "a5d28e61ef7a0d137fec66f2394141b5a318b1d8fdc50ebea7f495869ac03858"
+  },
+  "generalPreviewSkipped": true,
+  "wallEdgeUV": {
+    "protectedWallFaces": 3554,
+    "minimumAtlasWidthPixels": 2.3,
+    "sampleSupportPixels": 3.5
+  },
+  "mortarUV": {
+    "cells": 396,
+    "topY": 0.004,
+    "planeBoundsChanged": true,
+    "moduleLongitudinalBounds": [
+      -9,
+      9
+    ],
+    "addedTriangles": 790,
+    "samples": "adjacent slab exposed radiance; local furniture/tree shadows retained"
+  },
+  "floorBevelUV": {
+    "tileCount": 396,
+    "retargetedFaces": 12672,
+    "retargetedLoops": 50688,
+    "insetMeters": 0.035
+  },
+  "bytes": 1610728,
+  "seconds": 124.13249492645264
+}

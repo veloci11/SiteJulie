@@ -1,0 +1,13 @@
+node_modules
+.next
+.next-*
+.local
+.env*
+ImageOeuvre
+references
+assets
+artifacts
+docs/captures
+test-results
+playwright-report
+.git

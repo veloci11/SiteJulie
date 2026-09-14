@@ -1,0 +1,94 @@
+{
+  "module": "outside",
+  "samples": 64,
+  "device": "Apple M1 Pro Metal",
+  "pass": "DIFFUSE COLOR DIRECT INDIRECT",
+  "retainedGeometryChanged": false,
+  "excludedMaterials": [
+    "Coastal limestone",
+    "Distant warm island"
+  ],
+  "lighting": "sun and world sky only",
+  "atlases": [
+    {
+      "group": "shell",
+      "resolution": 4096,
+      "radianceScale": 1.0,
+      "maxRadiance": 1.1572316884994507,
+      "percentile9998": 0.9791854619979858,
+      "path": "/museum/bakes/outside-shell.png",
+      "pixelProbes": [
+        {
+          "x": 2971,
+          "y": 1572,
+          "expectedLinear": [
+            0.14645002782344818,
+            0.09750799089670181,
+            0.05604208633303642
+          ]
+        },
+        {
+          "x": 3468,
+          "y": 3418,
+          "expectedLinear": [
+            0.5032342076301575,
+            0.28207850456237793,
+            0.11468705534934998
+          ]
+        },
+        {
+          "x": 2253,
+          "y": 2433,
+          "expectedLinear": [
+            0.7684220671653748,
+            0.6021467447280884,
+            0.4294315278530121
+          ]
+        }
+      ],
+      "denoiser": "OpenImageDenoise RT HDR, CPU, no auxiliary guides"
+    },
+    {
+      "group": "furniture",
+      "resolution": 2048,
+      "radianceScale": 1.25,
+      "maxRadiance": 1.1384119987487793,
+      "percentile9998": 1.0423767566680908,
+      "path": "/museum/bakes/outside-furniture.png",
+      "pixelProbes": [
+        {
+          "x": 8,
+          "y": 1509,
+          "expectedLinear": [
+            0.15875491499900818,
+            0.0956542119383812,
+            0.04559061676263809
+          ]
+        },
+        {
+          "x": 70,
+          "y": 1511,
+          "expectedLinear": [
+            0.4927280843257904,
+            0.2869376838207245,
+            0.12034112215042114
+          ]
+        },
+        {
+          "x": 136,
+          "y": 1650,
+          "expectedLinear": [
+            0.8445464968681335,
+            0.6054774522781372,
+            0.34998464584350586
+          ]
+        }
+      ],
+      "denoiser": "OpenImageDenoise RT HDR, CPU, no auxiliary guides"
+    }
+  ],
+  "bytes": 3078072,
+  "seconds": 85.2450361251831,
+  "denoiseSeconds": 10.335225105285645,
+  "positionQuantizationBits": 20
+}

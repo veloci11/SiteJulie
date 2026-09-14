@@ -1,0 +1,61 @@
+{
+  "notice": "Sources utilisateur intactes. Titres provisoires, échelles illustratives. Pas de prix ni informations artistiques déduites.",
+  "sources": [
+    {
+      "id": "oeuvre-01",
+      "source": "e05c9117-2eae-4eee-b03c-25a2e889d8f0.JPG",
+      "sha256": "e47c3df18a411b05ecdd700409d7f712b2a735010dda291bb723621315fa29b4",
+      "width": 1014,
+      "height": 1000
+    },
+    {
+      "id": "oeuvre-02",
+      "source": "de45265e-1fa5-4f4e-83a3-d9f485f0bb87.JPG",
+      "sha256": "c81a1b6956ab588f5f6e6443e982bb4890c0afbbc732211e5f69f6a264284ab1",
+      "width": 1034,
+      "height": 755
+    },
+    {
+      "id": "oeuvre-03",
+      "source": "d22cb2d1-78d7-4ea8-9477-edd61a15ad14.JPG",
+      "sha256": "bcadd20144b6d92744cfdc7042a2c3c380511ba04c5ec25a62610f67738cb67d",
+      "width": 1179,
+      "height": 1569
+    },
+    {
+      "id": "oeuvre-04",
+      "source": "ba2b629e-879c-4b43-86fd-f19daa5400b0.JPG",
+      "sha256": "84097b7eaeec2fab6c35279493e6078ba47b2d9b941ac7c054b40f6e1f4c7950",
+      "width": 1018,
+      "height": 772
+    },
+    {
+      "id": "oeuvre-05",
+      "source": "017613c7-561e-4192-866c-ab5693e669bd.JPG",
+      "sha256": "61bcdcabc417253be4668b6a3c19ee4887d2a9310856bb1ffbd8d405882db055",
+      "width": 1012,
+      "height": 1281
+    },
+    {
+      "id": "oeuvre-06",
+      "source": "48a74ea6-cad6-4954-b9ef-bdba77bf6b3c.JPG",
+      "sha256": "271d9d4ae0afe62d302b96aee9686cf70844712b14492d1d890b50293b6cfa9c",
+      "width": 1179,
+      "height": 1557
+    },
+    {
+      "id": "oeuvre-07",
+      "source": "4bc7c384-5e9b-4073-99ae-0f6949226404.JPG",
+      "sha256": "c73c9d6caf9e82e412fbf30317c148df0f80d4b97570ab5986a25d4e61ae314b",
+      "width": 1179,
+      "height": 1325
+    },
+    {
+      "id": "oeuvre-08",
+      "source": "2f00a100-8cfd-4cd4-ad7d-f59be19fad23.JPG",
+      "sha256": "df3fc723eb6d4a40041021de3d7be3ae8fbc3784738c370ee74e4af7ebd972b9",
+      "width": 893,
+      "height": 1600
+    }
+  ]
+}

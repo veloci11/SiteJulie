@@ -1,0 +1,38 @@
+{
+  "module": "extension",
+  "refinement": {
+    "internalFacesRemoved": 176,
+    "vaultRibsLowered": 0,
+    "ribShiftMeters": 0.055,
+    "mortarTopY": 0.004,
+    "jointDepthMeters": 0.0025
+  },
+  "originalAtlasFacesMatched": true,
+  "atlases": [
+    {
+      "group": "walls",
+      "size": 2048,
+      "radianceScale": 5.75,
+      "path": "/museum/clean/extension-walls-light.png",
+      "containsAlbedo": false,
+      "containsNormalDetail": false
+    },
+    {
+      "group": "cap",
+      "size": 512,
+      "radianceScale": 14.75,
+      "path": "/museum/clean/extension-cap-light.png",
+      "containsAlbedo": false,
+      "containsNormalDetail": false
+    }
+  ],
+  "wallColorLinear": [
+    0.67,
+    0.54,
+    0.42
+  ],
+  "capSeparate": true,
+  "floorRadianceScale": 1,
+  "bytes": 2525428,
+  "seconds": 39.5932400226593
+}

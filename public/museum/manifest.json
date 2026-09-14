@@ -1,0 +1,1059 @@
+{
+  "schemaVersion": 2,
+  "generator": "scripts/blender/build_contemporary_rooms.py + sync_contemporary_manifest.mjs",
+  "blenderVersion": "5.2.1 LTS",
+  "units": "metres",
+  "up": "Y",
+  "roomOffsetZ": 18,
+  "files": {
+    "hall": "/museum/hall-contemporary.glb",
+    "extension": "/museum/extension-contemporary.glb",
+    "outside": "/museum/outside.glb",
+    "endCap": "/museum/end-cap-contemporary.glb",
+    "fig": "/museum/fig-detailed.glb",
+    "terminal": "/museum/extension-terminal-contemporary.glb",
+    "figReading": "/museum/fig-reading.glb",
+    "figCentral": "/museum/fig-central.glb"
+  },
+  "anchors": {
+    "hall": {
+      "origin": [
+        0,
+        0,
+        0
+      ],
+      "portal_front": [
+        0,
+        2.2,
+        9
+      ],
+      "portal_about": [
+        -6,
+        2.2,
+        -6.5
+      ],
+      "portal_contact": [
+        6,
+        2.2,
+        -6.5
+      ],
+      "about": [
+        -9.8,
+        3.8,
+        -6.5
+      ],
+      "contact": [
+        9.8,
+        3.8,
+        -6.5
+      ],
+      "slot_01": [
+        -5.86,
+        2.65,
+        6
+      ],
+      "slot_02": [
+        -5.86,
+        2.65,
+        2
+      ],
+      "slot_03": [
+        -5.86,
+        2.65,
+        -1.5
+      ],
+      "slot_04": [
+        -5.86,
+        2.65,
+        -4
+      ],
+      "slot_05": [
+        5.86,
+        2.65,
+        6
+      ],
+      "slot_06": [
+        5.86,
+        2.65,
+        2
+      ],
+      "slot_07": [
+        5.86,
+        2.65,
+        -1.5
+      ],
+      "slot_08": [
+        5.86,
+        2.65,
+        -4
+      ],
+      "slot_09": [
+        -3.5,
+        2.65,
+        -8.86
+      ],
+      "slot_10": [
+        0,
+        2.65,
+        -8.86
+      ],
+      "slot_11": [
+        3.5,
+        2.65,
+        -8.86
+      ],
+      "slot_12": [
+        3.5,
+        2.65,
+        8.86
+      ]
+    },
+    "extension": {
+      "origin": [
+        0,
+        0,
+        0
+      ],
+      "portal_front": [
+        0,
+        2.2,
+        9
+      ],
+      "portal_about": [
+        -6,
+        2.2,
+        -6.5
+      ],
+      "portal_contact": [
+        6,
+        2.2,
+        -6.5
+      ],
+      "about": [
+        -9.8,
+        3.8,
+        -6.5
+      ],
+      "contact": [
+        9.8,
+        3.8,
+        -6.5
+      ],
+      "portal_back": [
+        0,
+        2.2,
+        -9
+      ],
+      "slot_01": [
+        -5.86,
+        2.65,
+        6
+      ],
+      "slot_02": [
+        -5.86,
+        2.65,
+        2
+      ],
+      "slot_03": [
+        -5.86,
+        2.65,
+        -1.5
+      ],
+      "slot_04": [
+        -5.86,
+        2.65,
+        -4
+      ],
+      "slot_05": [
+        5.86,
+        2.65,
+        6
+      ],
+      "slot_06": [
+        5.86,
+        2.65,
+        2
+      ],
+      "slot_07": [
+        5.86,
+        2.65,
+        -1.5
+      ],
+      "slot_08": [
+        5.86,
+        2.65,
+        -4
+      ],
+      "slot_09": [
+        -3.5,
+        2.65,
+        -8.86
+      ],
+      "slot_10": [
+        -3.5,
+        2.65,
+        8.86
+      ],
+      "slot_11": [
+        3.5,
+        2.65,
+        -8.86
+      ],
+      "slot_12": [
+        3.5,
+        2.65,
+        8.86
+      ]
+    },
+    "outside": {
+      "origin": [
+        0,
+        0,
+        0
+      ]
+    }
+  },
+  "obstaclesByModule": {
+    "hall": [
+      {
+        "kind": "alcove-seat",
+        "min": [
+          -9.35,
+          -0.020000000000000018,
+          -8.84
+        ],
+        "max": [
+          -7.049999999999999,
+          0.76,
+          -8.2
+        ]
+      },
+      {
+        "kind": "editorial-shelf",
+        "min": [
+          -9.940000000000001,
+          1.0250000000000001,
+          -7.625
+        ],
+        "max": [
+          -9.52,
+          1.56,
+          -5.375
+        ]
+      },
+      {
+        "kind": "alcove-seat",
+        "min": [
+          7.049999999999999,
+          -0.020000000000000018,
+          -8.84
+        ],
+        "max": [
+          9.35,
+          0.76,
+          -8.2
+        ]
+      },
+      {
+        "kind": "editorial-shelf",
+        "min": [
+          9.52,
+          1.0250000000000001,
+          -7.625
+        ],
+        "max": [
+          9.940000000000001,
+          1.56,
+          -5.375
+        ]
+      },
+      {
+        "kind": "console-sculpture",
+        "min": [
+          4.760000000000001,
+          0,
+          7.29
+        ],
+        "max": [
+          5.54,
+          2.05,
+          8.51
+        ]
+      },
+      {
+        "kind": "sculpture",
+        "min": [
+          -5.39,
+          -0.004999999999999893,
+          7.510000000000001
+        ],
+        "max": [
+          -4.61,
+          2.18,
+          8.290000000000001
+        ]
+      },
+      {
+        "kind": "timber-dado",
+        "min": [
+          -4.46,
+          0,
+          -8.86
+        ],
+        "max": [
+          4.46,
+          0.73,
+          -8.76
+        ]
+      },
+      {
+        "kind": "fig-tree",
+        "min": [
+          -5.745,
+          0,
+          3.3049999999999997
+        ],
+        "max": [
+          -3.6550000000000002,
+          4.1674999999999995,
+          5.395
+        ]
+      },
+      {
+        "kind": "bench",
+        "min": [
+          -3.9299999999999997,
+          0,
+          3.7800000000000002
+        ],
+        "max": [
+          -1.8699999999999999,
+          0.77,
+          4.72
+        ]
+      },
+      {
+        "kind": "reading-chair",
+        "min": [
+          -4.72,
+          0,
+          5.95
+        ],
+        "max": [
+          -3.88,
+          0.88,
+          6.8500000000000005
+        ]
+      },
+      {
+        "kind": "reading-table",
+        "min": [
+          -3.18,
+          0,
+          5.7
+        ],
+        "max": [
+          -2.32,
+          0.5,
+          6.3999999999999995
+        ]
+      },
+      {
+        "kind": "wall-detail",
+        "min": [
+          -5.85,
+          0,
+          -0.1
+        ],
+        "max": [
+          -5.785,
+          5.95,
+          0.6
+        ]
+      }
+    ],
+    "extension": [
+      {
+        "kind": "alcove-seat",
+        "min": [
+          -9.35,
+          -0.020000000000000018,
+          -8.84
+        ],
+        "max": [
+          -7.049999999999999,
+          0.76,
+          -8.2
+        ]
+      },
+      {
+        "kind": "editorial-shelf",
+        "min": [
+          -9.940000000000001,
+          1.0250000000000001,
+          -7.625
+        ],
+        "max": [
+          -9.52,
+          1.56,
+          -5.375
+        ]
+      },
+      {
+        "kind": "alcove-seat",
+        "min": [
+          7.049999999999999,
+          -0.020000000000000018,
+          -8.84
+        ],
+        "max": [
+          9.35,
+          0.76,
+          -8.2
+        ]
+      },
+      {
+        "kind": "editorial-shelf",
+        "min": [
+          9.52,
+          1.0250000000000001,
+          -7.625
+        ],
+        "max": [
+          9.940000000000001,
+          1.56,
+          -5.375
+        ]
+      },
+      {
+        "kind": "console-sculpture",
+        "min": [
+          4.760000000000001,
+          0,
+          7.29
+        ],
+        "max": [
+          5.54,
+          2.05,
+          8.51
+        ]
+      },
+      {
+        "kind": "sculpture",
+        "min": [
+          -5.39,
+          -0.004999999999999893,
+          7.510000000000001
+        ],
+        "max": [
+          -4.61,
+          2.18,
+          8.290000000000001
+        ]
+      },
+      {
+        "kind": "alcove-timber",
+        "min": [
+          -9.43,
+          0.12,
+          -8.8
+        ],
+        "max": [
+          -6.45,
+          2.78,
+          -8.73
+        ]
+      },
+      {
+        "kind": "alcove-timber",
+        "min": [
+          6.45,
+          0.12,
+          -8.8
+        ],
+        "max": [
+          9.43,
+          2.78,
+          -8.73
+        ]
+      },
+      {
+        "kind": "fig-tree",
+        "min": [
+          -0.55,
+          0,
+          -2.45
+        ],
+        "max": [
+          1.6500000000000001,
+          4.369999999999999,
+          -0.25
+        ]
+      },
+      {
+        "kind": "bench",
+        "min": [
+          -1.54,
+          0,
+          -2.23
+        ],
+        "max": [
+          -0.7599999999999999,
+          0.77,
+          -0.4700000000000001
+        ]
+      },
+      {
+        "kind": "wall-detail",
+        "min": [
+          -5.85,
+          0,
+          3.45
+        ],
+        "max": [
+          -5.785,
+          5.7,
+          4.55
+        ]
+      }
+    ]
+  },
+  "boundsByModule": {
+    "hall": {
+      "min": [
+        -10.149999618530273,
+        -0.3100000023841858,
+        -9.149999618530273
+      ],
+      "max": [
+        10.149999618530273,
+        6.0999979972839355,
+        9.125
+      ]
+    },
+    "extension": {
+      "min": [
+        -10.149999618530273,
+        -0.3100000023841858,
+        -9.149999618530273
+      ],
+      "max": [
+        10.149999618530273,
+        5.8499979972839355,
+        9.125
+      ]
+    },
+    "outside": {
+      "min": [
+        -18,
+        -1.2000000476837158,
+        0
+      ],
+      "max": [
+        18,
+        5.933497428894043,
+        62
+      ]
+    },
+    "endCap": {
+      "min": [
+        -1.7400000095367432,
+        0,
+        9.009999692440033
+      ],
+      "max": [
+        1.7400023937225342,
+        6.800000190734863,
+        9.380000919103622
+      ]
+    },
+    "terminal": {
+      "min": [
+        -10.149999618530273,
+        -0.3100000023841858,
+        -9.149999618530273
+      ],
+      "max": [
+        10.149999618530273,
+        5.8499979972839355,
+        9.125
+      ]
+    }
+  },
+  "compression": {
+    "extension": "KHR_draco_mesh_compression",
+    "decoderPath": "/museum/draco/",
+    "appliesTo": "hall and extension",
+    "positionBits": 20,
+    "normalBits": 12,
+    "texcoordBits": 16,
+    "vertexColors": false,
+    "endCap": {
+      "positionBits": 20,
+      "texcoordBits": 16,
+      "normalEncoding": "exporter default, constant-axis normals"
+    },
+    "fig": {
+      "positionBits": 18,
+      "normalBits": 12,
+      "texcoordBits": 14,
+      "vertexColors": true
+    }
+  },
+  "materials": "LIGHTMAP irradiance + plaster tint; SURFACE metric UV0 details and UV1 diffuse radiance. No baked artwork. Fig uses independent PBR + vertex colors.",
+  "outside": {
+    "attachAt": "last room front portal",
+    "localOrigin": [
+      0,
+      0,
+      0
+    ],
+    "seaStartZ": 10,
+    "seaY": -0.7,
+    "seaEndZ": 180
+  },
+  "obstacles": [
+    {
+      "kind": "alcove-seat",
+      "min": [
+        -9.35,
+        -0.020000000000000018,
+        -8.84
+      ],
+      "max": [
+        -7.049999999999999,
+        0.76,
+        -8.2
+      ]
+    },
+    {
+      "kind": "editorial-shelf",
+      "min": [
+        -9.940000000000001,
+        1.0250000000000001,
+        -7.625
+      ],
+      "max": [
+        -9.52,
+        1.56,
+        -5.375
+      ]
+    },
+    {
+      "kind": "alcove-seat",
+      "min": [
+        7.049999999999999,
+        -0.020000000000000018,
+        -8.84
+      ],
+      "max": [
+        9.35,
+        0.76,
+        -8.2
+      ]
+    },
+    {
+      "kind": "editorial-shelf",
+      "min": [
+        9.52,
+        1.0250000000000001,
+        -7.625
+      ],
+      "max": [
+        9.940000000000001,
+        1.56,
+        -5.375
+      ]
+    },
+    {
+      "kind": "console-sculpture",
+      "min": [
+        4.760000000000001,
+        0,
+        7.29
+      ],
+      "max": [
+        5.54,
+        2.05,
+        8.51
+      ]
+    },
+    {
+      "kind": "sculpture",
+      "min": [
+        -5.39,
+        -0.004999999999999893,
+        7.510000000000001
+      ],
+      "max": [
+        -4.61,
+        2.18,
+        8.290000000000001
+      ]
+    },
+    {
+      "kind": "timber-dado",
+      "min": [
+        -4.46,
+        0,
+        -8.86
+      ],
+      "max": [
+        4.46,
+        0.73,
+        -8.76
+      ]
+    },
+    {
+      "kind": "fig-tree",
+      "min": [
+        -5.745,
+        0,
+        3.3049999999999997
+      ],
+      "max": [
+        -3.6550000000000002,
+        4.1674999999999995,
+        5.395
+      ]
+    },
+    {
+      "kind": "bench",
+      "min": [
+        -3.9299999999999997,
+        0,
+        3.7800000000000002
+      ],
+      "max": [
+        -1.8699999999999999,
+        0.77,
+        4.72
+      ]
+    },
+    {
+      "kind": "reading-chair",
+      "min": [
+        -4.72,
+        0,
+        5.95
+      ],
+      "max": [
+        -3.88,
+        0.88,
+        6.8500000000000005
+      ]
+    },
+    {
+      "kind": "reading-table",
+      "min": [
+        -3.18,
+        0,
+        5.7
+      ],
+      "max": [
+        -2.32,
+        0.5,
+        6.3999999999999995
+      ]
+    },
+    {
+      "kind": "wall-detail",
+      "min": [
+        -5.85,
+        0,
+        -0.1
+      ],
+      "max": [
+        -5.785,
+        5.95,
+        0.6
+      ]
+    }
+  ],
+  "bounds": {
+    "min": [
+      -10.149999618530273,
+      -0.3100000023841858,
+      -9.149999618530273
+    ],
+    "max": [
+      10.149999618530273,
+      6.0999979972839355,
+      9.125
+    ]
+  },
+  "legacyV2": {
+    "generator": "scripts/blender/build_museum.py",
+    "files": {
+      "hall": "/museum/hall.glb",
+      "extension": "/museum/extension.glb",
+      "outside": "/museum/outside.glb"
+    },
+    "boundsByModule": {
+      "hall": {
+        "min": [
+          -10.149999618530273,
+          -0.3100000023841858,
+          -9.149999618530273
+        ],
+        "max": [
+          10.149999618530273,
+          6.739999771118164,
+          9.125
+        ]
+      },
+      "extension": {
+        "min": [
+          -10.149999618530273,
+          -0.3100000023841858,
+          -9.149999618530273
+        ],
+        "max": [
+          10.149999618530273,
+          5.860000133514404,
+          9.125
+        ]
+      },
+      "outside": {
+        "min": [
+          -18,
+          -1.2000000476837158,
+          0
+        ],
+        "max": [
+          18,
+          5.933497428894043,
+          62
+        ]
+      }
+    },
+    "compression": {
+      "extension": "KHR_draco_mesh_compression",
+      "decoderPath": "/museum/draco/",
+      "positionBits": 16,
+      "normalBits": 12,
+      "colorBits": 8
+    },
+    "materials": "Original warm PBR maps, geometry raycast vertex AO; no artworks or editorial text baked into architecture"
+  },
+  "activeOutside": false,
+  "assetStats": {
+    "hall": {
+      "file": "/museum/hall-contemporary.glb",
+      "bytes": 1133420,
+      "triangles": 64350,
+      "meshes": 23,
+      "sha256": "fac16d881adad70619e09e3b8b0cb2f8967aefef2cb026fad4ef00bd666af460",
+      "bounds": {
+        "min": [
+          -10.149999618530273,
+          -0.3100000023841858,
+          -9.149999618530273
+        ],
+        "max": [
+          10.149999618530273,
+          6.0999979972839355,
+          9.125
+        ]
+      }
+    },
+    "extension": {
+      "file": "/museum/extension-contemporary.glb",
+      "bytes": 1611416,
+      "triangles": 90528,
+      "meshes": 21,
+      "sha256": "70ffd551de7c778536b300c193a154f7ca083d58f950de1354955d507ff4f631",
+      "bounds": {
+        "min": [
+          -10.149999618530273,
+          -0.3100000023841858,
+          -9.149999618530273
+        ],
+        "max": [
+          10.149999618530273,
+          5.8499979972839355,
+          9.125
+        ]
+      }
+    },
+    "terminal": {
+      "file": "/museum/extension-terminal-contemporary.glb",
+      "bytes": 1610728,
+      "triangles": 89840,
+      "meshes": 21,
+      "sha256": "f191a6457981406dd73146a736d9104f6561a0643d9c505523fb44ea94e9eff6",
+      "bounds": {
+        "min": [
+          -10.149999618530273,
+          -0.3100000023841858,
+          -9.149999618530273
+        ],
+        "max": [
+          10.149999618530273,
+          5.8499979972839355,
+          9.125
+        ]
+      }
+    },
+    "endCap": {
+      "file": "/museum/end-cap-contemporary.glb",
+      "bytes": 4884,
+      "triangles": 12,
+      "meshes": 1,
+      "sha256": "a2cd218518aea815354def08e84b98e084a1c29f5f9fc2fb1ff4410f368f1abb",
+      "bounds": {
+        "min": [
+          -1.7400000095367432,
+          0,
+          9.009999692440033
+        ],
+        "max": [
+          1.7400023937225342,
+          6.800000190734863,
+          9.380000919103622
+        ]
+      }
+    },
+    "figReading": {
+      "file": "/museum/fig-reading.glb",
+      "bytes": 764660,
+      "triangles": 71924,
+      "meshes": 3,
+      "sha256": "e7cd31f919ee2813de7d4c7cb90dda9619eb11567f712033a7a79be0eccdd1c9",
+      "bounds": {
+        "min": [
+          -1.0724533796310425,
+          0.6778745055198669,
+          -0.945519745349884
+        ],
+        "max": [
+          1.0374482870101929,
+          4.345088005065918,
+          1.074963092803955
+        ]
+      }
+    },
+    "figCentral": {
+      "file": "/museum/fig-central.glb",
+      "bytes": 826352,
+      "triangles": 79564,
+      "meshes": 3,
+      "sha256": "a5d28e61ef7a0d137fec66f2394141b5a318b1d8fdc50ebea7f495869ac03858",
+      "bounds": {
+        "min": [
+          -0.9857982397079468,
+          0.6861895322799683,
+          -1.0907750129699707
+        ],
+        "max": [
+          0.9883843660354614,
+          4.349999904632568,
+          0.9253671169281006
+        ]
+      }
+    }
+  },
+  "sharedDetailBytes": 303552,
+  "architectureAndDetailsBytes": 3047700,
+  "treesByModule": {
+    "hall": [
+      {
+        "position": [
+          -4.7,
+          0.035,
+          4.35
+        ],
+        "scale": 0.95,
+        "rotationY": 0.4,
+        "potRadius": 0.46,
+        "potHeight": 0.74,
+        "soilY": 0.7,
+        "asset": "/museum/fig-reading.glb"
+      }
+    ],
+    "extension": [
+      {
+        "position": [
+          0.55,
+          0.02,
+          -1.35
+        ],
+        "scale": 1,
+        "rotationY": 2.8,
+        "potRadius": 0.48,
+        "potHeight": 0.76,
+        "soilY": 0.72,
+        "asset": "/museum/fig-central.glb"
+      }
+    ]
+  },
+  "benchesByModule": {
+    "hall": [
+      {
+        "position": [
+          -2.9,
+          0,
+          4.25
+        ],
+        "length": 2,
+        "width": 0.88,
+        "rotationY": 0
+      }
+    ],
+    "extension": [
+      {
+        "position": [
+          -1.15,
+          0,
+          -1.35
+        ],
+        "length": 1.7,
+        "width": 0.72,
+        "rotationY": 1.5707963267948966
+      }
+    ]
+  },
+  "terminalVariant": {
+    "file": "/museum/extension-terminal-contemporary.glb",
+    "closure": "continuous front plaster wall at z8.925, no aperture and no separate cap",
+    "preservedInternalPortalZ": -9
+  },
+  "partitionsByModule": {
+    "hall": [],
+    "extension": []
+  },
+  "wallDetailsByModule": {
+    "hall": [
+      {
+        "name": "Floor to ceiling walnut insert",
+        "position": [
+          -5.8175,
+          2.975,
+          0.25
+        ],
+        "size": [
+          0.065,
+          5.95,
+          0.7
+        ],
+        "style": "walnut-insert"
+      }
+    ],
+    "extension": [
+      {
+        "name": "Floor to ceiling walnut insert",
+        "position": [
+          -5.8175,
+          2.85,
+          4
+        ],
+        "size": [
+          0.065,
+          5.7,
+          1.1
+        ],
+        "style": "walnut-insert"
+      }
+    ]
+  }
+}
