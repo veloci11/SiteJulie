@@ -89,6 +89,9 @@ export const settingsSchema = z.object({
     ])
     .optional(),
   coursesText: z.string().max(6000).optional(),
+  collectionRooms: z
+    .record(z.string().trim().min(1).max(200), z.string().regex(/^room-[1-4]$/))
+    .optional(),
   collectionDescriptions: z
     .record(z.string().max(200), z.string().max(6000))
     .optional(),
@@ -127,8 +130,16 @@ export function resolvePlacement(
   a: AdminArtwork,
   all: AdminArtwork[],
   rooms: string[],
+  collectionRooms: Record<string, string> = {},
 ): AdminArtwork {
-  if (a.publication !== "published") return a;
+  if (a.publication !== "published") {
+    if (!collectionFitsRoom(a, all, a.roomId, collectionRooms))
+      throw new ServiceError(
+        "Cette collection doit rester dans la salle choisie.",
+        409,
+      );
+    return a;
+  }
   if (a.imageWidth < 1 || a.imageHeight < 1 || !a.image || !a.alt.trim())
     throw new ServiceError(
       "Ajoutez une image prête et son texte alternatif avant publication.",
@@ -138,7 +149,8 @@ export function resolvePlacement(
       .filter((x) => x.id !== a.id && x.publication === "published")
       .map((x) => x.slotId),
   );
-  const roomCompatible = (roomId: string) => collectionFitsRoom(a, all, roomId);
+  const roomCompatible = (roomId: string) =>
+    collectionFitsRoom(a, all, roomId, collectionRooms);
   const slots = rooms.flatMap(getSlots);
   const ratio = a.imageWidth / a.imageHeight;
   const widthM = a.widthCm
@@ -177,7 +189,7 @@ export function resolvePlacement(
     );
   if (!roomCompatible(slot.roomId))
     throw new ServiceError(
-      "Une collection reste dans sa salle, avec deux collections maximum par salle. Choisissez une salle compatible.",
+      "Une collection reste dans sa salle. Choisissez un emplacement compatible.",
       409,
     );
   if (!compatible(slot))

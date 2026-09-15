@@ -26,12 +26,14 @@ type Props = {
   artwork: AdminArtwork;
   artworks: AdminArtwork[];
   rooms: string[];
+  collectionRooms?: Record<string, string>;
   onChange: (a: AdminArtwork) => void;
 };
 export default function PlacementEditor({
   artwork,
   artworks,
   rooms,
+  collectionRooms,
   onChange,
 }: Props) {
   const slots = getSlots(artwork.roomId);
@@ -102,17 +104,18 @@ export default function PlacementEditor({
         { ...artwork, publication: "published" },
         artworks,
         rooms,
+        collectionRooms,
       );
       onChange({ ...placed, publication: artwork.publication });
     } catch {
       /* The server returns the actionable error if no safe position exists. */
     }
-  }, [artwork, artworks, rooms, onChange]);
+  }, [artwork, artworks, rooms, collectionRooms, onChange]);
   const peers = artworks.filter(
     (a) => a.id !== artwork.id && a.publication === "published",
   );
   const allowedRoom = (room: string) =>
-    collectionFitsRoom(artwork, artworks, room);
+    collectionFitsRoom(artwork, artworks, room, collectionRooms);
   const occupied = (slot: ArtworkSlot) =>
     peers.find((a) => a.slotId === slot.id);
   const shown = slots.filter((s) => wallKey(s) === wall);
@@ -231,12 +234,13 @@ export default function PlacementEditor({
               className={`admin-wall-slot${isSelected ? " selected" : ""}${other ? " occupied" : ""}`}
               disabled={Boolean(other) || !allowedRoom(artwork.roomId)}
               aria-pressed={isSelected}
+              title={other ? `${slot.label} · ${other.title}` : undefined}
               aria-label={`${slot.label}${other ? ` · occupé par ${other.title}` : " · emplacement libre"}`}
               onClick={() => choose(slot)}
               style={{
                 left: `${x - cellWidth / 2}%`,
                 width: `${cellWidth}%`,
-                top: "9%",
+                top: `${((4.2 - slot.position[1] - (slot.maxHeightM + FRAME_OUTSET) / 2) / 4.2) * 100}%`,
                 height: `${((slot.maxHeightM + FRAME_OUTSET) / 4.2) * 100}%`,
               }}
             >
@@ -283,14 +287,16 @@ export default function PlacementEditor({
               ) : (
                 <span className="admin-slot-empty">+</span>
               )}
-              <span className="admin-slot-label">
-                {slot.label.replace(/.*· /, "")}
-                {other
-                  ? " · occupé"
-                  : isSelected
-                    ? " · sélectionné"
-                    : " · libre"}
-              </span>
+              {!other && (
+                <span className="admin-slot-label">
+                  {slot.label.replace(/.*· /, "")}
+                  {other
+                    ? " · occupé"
+                    : isSelected
+                      ? " · sélectionné"
+                      : " · libre"}
+                </span>
+              )}
             </button>
           );
         })}

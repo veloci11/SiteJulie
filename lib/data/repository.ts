@@ -97,10 +97,11 @@ function prepareCollectionChange(
   a: AdminArtwork,
   old: AdminArtwork | undefined,
   all: AdminArtwork[],
+  collectionRooms: Record<string, string> = {},
 ) {
   if (!old || collectionKey(old.collection) === collectionKey(a.collection))
     return a;
-  const moved = moveToCollection(a, a.collection, all);
+  const moved = moveToCollection(a, a.collection, all, collectionRooms);
   // Keep a deliberate wall selection in the destination room; reset only stale old placement.
   if (
     a.roomId === moved.roomId &&
@@ -140,9 +141,15 @@ export async function saveArtwork(raw: unknown) {
       }
       const next = {
         ...resolvePlacement(
-          prepareCollectionChange(a, old, data.artworks),
+          prepareCollectionChange(
+            a,
+            old,
+            data.artworks,
+            data.settings.collectionRooms,
+          ),
           data.artworks,
           data.rooms,
+          data.settings.collectionRooms,
         ),
         revision: a.revision + 1,
       };
@@ -153,9 +160,15 @@ export async function saveArtwork(raw: unknown) {
   const data = await getAdminData();
   const old = data.artworks.find((x) => x.id === a.id);
   const next = resolvePlacement(
-    prepareCollectionChange(a, old, data.artworks),
+    prepareCollectionChange(
+      a,
+      old,
+      data.artworks,
+      data.settings.collectionRooms,
+    ),
     data.artworks,
     data.rooms,
+    data.settings.collectionRooms,
   );
   const client = await supabaseSession();
   const { data: saved, error } = await client.rpc("save_artwork", {
@@ -171,7 +184,17 @@ export async function saveSettings(raw: unknown) {
     throw new ServiceError("Vérifiez les textes et l’adresse email.");
   if (isDemo() || isBlob()) {
     const mutate = isDemo() ? mutateLocal : mutateBlob;
-    return mutate((data) => (data.settings = parsed.data));
+    return mutate(
+      (data) =>
+        (data.settings = {
+          ...parsed.data,
+          collectionRooms: data.settings.collectionRooms,
+          collectionDescriptions: {
+            ...data.settings.collectionDescriptions,
+            ...parsed.data.collectionDescriptions,
+          },
+        }),
+    );
   }
   const client = await supabaseSession();
   const { error } = await client
@@ -197,4 +220,55 @@ export async function addRoom() {
   const { data, error } = await client.rpc("add_museum_room");
   if (error) throw new ServiceError(error.message, 409);
   return data as string;
+}
+
+/** Empty collections persist in settings; creation never moves existing works. */
+export async function createCollection(raw: unknown) {
+  await requireAdmin();
+  const input = raw as { name?: unknown; roomId?: unknown } | null;
+  if (
+    !input ||
+    typeof input.name !== "string" ||
+    typeof input.roomId !== "string"
+  )
+    throw new ServiceError("Renseignez le nom de la collection et sa salle.");
+  const name = input.name.trim();
+  if (
+    !name ||
+    name.length > 200 ||
+    ["__proto__", "constructor", "prototype"].includes(collectionKey(name))
+  )
+    throw new ServiceError(
+      "Choisissez un nom de collection de 1 à 200 caractères.",
+    );
+  if (!isDemo() && !isBlob())
+    throw new ServiceError(
+      "La création de collections nécessite le stockage Blob.",
+      503,
+    );
+  const mutate = isDemo() ? mutateLocal : mutateBlob;
+  return mutate((store) => {
+    if (!store.rooms.includes(input.roomId as string))
+      throw new ServiceError("Cette salle n’existe pas.");
+    const names = [
+      ...Object.keys(store.settings.collectionRooms ?? {}),
+      ...store.artworks.map((a) => a.collection),
+    ];
+    if (
+      names.some((existing) => collectionKey(existing) === collectionKey(name))
+    )
+      throw new ServiceError(
+        "Une collection porte déjà ce nom. Sélectionnez-la dans la liste.",
+        409,
+      );
+    store.settings.collectionRooms = {
+      ...store.settings.collectionRooms,
+      [name]: input.roomId as string,
+    };
+    store.settings.collectionDescriptions = {
+      ...store.settings.collectionDescriptions,
+      [name]: "",
+    };
+    return { name, roomId: input.roomId as string };
+  });
 }

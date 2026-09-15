@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -47,6 +47,7 @@ async function api<T>(
       "/api/admin/artworks",
       "/api/admin/process",
       "/api/admin/settings",
+      "/api/admin/collections",
     ].includes(url)
   )
     notifyCatalogueChanged();
@@ -90,6 +91,7 @@ export default function AdminApp({
   const [busy, setBusy] = useState(false);
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
+  const [creatingCollection, setCreatingCollection] = useState(false);
   async function perform(fn: () => Promise<void>) {
     setBusy(true);
     setMessage("");
@@ -105,8 +107,13 @@ export default function AdminApp({
   async function refresh() {
     setData(await api<Data>("/api/admin/artworks", undefined, "GET"));
   }
-  const groups = data ? groupCollections(data.artworks, data.rooms) : [];
-  function newArtwork() {
+  const groups = data
+    ? groupCollections(data.artworks, data.rooms, data.settings.collectionRooms)
+    : [];
+  function newArtwork(
+    collection = groups[0]?.name ?? "",
+    roomId = groups[0]?.roomId ?? "room-1",
+  ) {
     const id = crypto.randomUUID();
     setEditing({
       id,
@@ -128,14 +135,14 @@ export default function AdminApp({
       availability: "available",
       publication: "draft",
       priceVisibility: "on_request",
-      roomId: groups[0]?.roomId ?? "room-1",
+      roomId,
       slotId: "",
       frameStyle: "brass",
       placementOffsetX: 0,
       placementOffsetY: 0,
       displayScale: 1,
-      order: groups[0]?.artworks.length ?? 0,
-      collection: groups[0]?.name ?? "",
+      order: groups.find((g) => g.name === collection)?.artworks.length ?? 0,
+      collection,
       revision: 0,
     });
     setError("");
@@ -183,6 +190,37 @@ export default function AdminApp({
   }
   return (
     <main className="admin-shell">
+      {data && creatingCollection && (
+        <CollectionCreator
+          rooms={data.rooms}
+          initialRoom={editing?.roomId ?? data.rooms[0]}
+          busy={busy}
+          error={error}
+          onClose={() => {
+            if (!busy) setCreatingCollection(false);
+          }}
+          onCreate={(name, roomId) =>
+            perform(async () => {
+              const created = await api<{ name: string; roomId: string }>(
+                "/api/admin/collections",
+                { name, roomId },
+              );
+              await refresh();
+              if (editing)
+                setEditing(
+                  moveToCollection(editing, created.name, data.artworks, {
+                    ...data.settings.collectionRooms,
+                    [created.name]: created.roomId,
+                  }),
+                );
+              setCreatingCollection(false);
+              setMessage(
+                `Collection « ${created.name} » créée dans la salle ${created.roomId.replace("room-", "")}.`,
+              );
+            })
+          }
+        />
+      )}
       <aside className="admin-sidebar">
         <Link href="/" className="admin-brand">
           <span>G</span> L’atelier
@@ -589,6 +627,7 @@ export default function AdminApp({
                               editing,
                               e.target.value,
                               data.artworks,
+                              data.settings.collectionRooms,
                             ),
                           );
                           setError("");
@@ -608,6 +647,16 @@ export default function AdminApp({
                         ))}
                       </select>
                     </label>
+                    <button
+                      type="button"
+                      className="admin-text-button"
+                      onClick={() => {
+                        setError("");
+                        setCreatingCollection(true);
+                      }}
+                    >
+                      + Créer une collection
+                    </button>
                     <p className="admin-help">
                       Changer de collection déplace le tableau dans sa salle.
                       Une place libre adaptée est proposée automatiquement, puis
@@ -648,6 +697,7 @@ export default function AdminApp({
                       artwork={editing}
                       artworks={data.artworks}
                       rooms={data.rooms}
+                      collectionRooms={data.settings.collectionRooms}
                       onChange={setEditing}
                     />
                     <div className="admin-two">
@@ -814,10 +864,21 @@ export default function AdminApp({
                 </h1>
                 <p>Chaque tableau a sa place. Faites vivre votre galerie.</p>
               </div>
-              <button className="admin-primary" onClick={newArtwork}>
-                <Plus size={17} />
-                Ajouter une œuvre
-              </button>
+              <div className="admin-heading-actions">
+                <button
+                  className="admin-secondary"
+                  onClick={() => {
+                    setError("");
+                    setCreatingCollection(true);
+                  }}
+                >
+                  <Plus size={17} /> Nouvelle collection
+                </button>
+                <button className="admin-primary" onClick={() => newArtwork()}>
+                  <Plus size={17} />
+                  Ajouter une œuvre
+                </button>
+              </div>
             </header>
             <div className="admin-list-tools">
               <div className="admin-filters">
@@ -851,7 +912,11 @@ export default function AdminApp({
                     .toLocaleLowerCase()
                     .includes(search.toLocaleLowerCase()),
               );
-              if (!visible.length) return null;
+              if (
+                !visible.length &&
+                (group.artworks.length > 0 || filter !== "all" || search.trim())
+              )
+                return null;
               return (
                 <section
                   className="admin-collection-group"
@@ -866,10 +931,25 @@ export default function AdminApp({
                       <h2>{group.name || "Sans collection"}</h2>
                     </div>
                     <span>
-                      {group.artworks.length} œuvres · ordre 1 à{" "}
-                      {group.artworks.length}
+                      {group.artworks.length
+                        ? `${group.artworks.length} œuvres · ordre 1 à ${group.artworks.length}`
+                        : "Aucune œuvre pour le moment"}
                     </span>
                   </header>
+                  {!group.artworks.length && (
+                    <div className="admin-empty-collection">
+                      <p>
+                        La collection est prête. Ajoutez une œuvre ou
+                        attribuez-lui un tableau existant.
+                      </p>
+                      <button
+                        className="admin-secondary"
+                        onClick={() => newArtwork(group.name, group.roomId)}
+                      >
+                        Ajouter la première œuvre
+                      </button>
+                    </div>
+                  )}
                   <div className="admin-artwork-grid">
                     {visible.map((a) => (
                       <button
@@ -927,7 +1007,7 @@ export default function AdminApp({
                   Ajoutez une première œuvre et prenez le temps de préparer sa
                   fiche.
                 </p>
-                <button className="admin-primary" onClick={newArtwork}>
+                <button className="admin-primary" onClick={() => newArtwork()}>
                   Ajouter une œuvre
                 </button>
               </section>
@@ -949,7 +1029,10 @@ function SettingsEditor({
 }) {
   const [draft, setDraft] = useState(settings);
   const field = (
-    key: Exclude<keyof SiteSettings, "collectionDescriptions">,
+    key: Exclude<
+      keyof SiteSettings,
+      "collectionDescriptions" | "collectionRooms"
+    >,
     label: string,
     multiline = false,
   ) => (
@@ -1054,5 +1137,103 @@ function SettingsEditor({
         </button>
       </form>
     </>
+  );
+}
+
+function CollectionCreator({
+  rooms,
+  initialRoom,
+  busy,
+  error,
+  onClose,
+  onCreate,
+}: {
+  rooms: string[];
+  initialRoom: string;
+  busy: boolean;
+  error: string;
+  onClose: () => void;
+  onCreate: (name: string, roomId: string) => Promise<void>;
+}) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    dialog.current?.showModal();
+  }, []);
+  return (
+    <dialog
+      ref={dialog}
+      className="admin-collection-dialog"
+      aria-labelledby="collection-dialog-title"
+      onCancel={(e) => {
+        e.preventDefault();
+        onClose();
+      }}
+    >
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          const values = new FormData(e.currentTarget);
+          void onCreate(
+            String(values.get("name")),
+            String(values.get("roomId")),
+          );
+        }}
+      >
+        <header>
+          <h2 id="collection-dialog-title">Nouvelle collection</h2>
+          <button
+            type="button"
+            aria-label="Fermer la création de collection"
+            onClick={onClose}
+            disabled={busy}
+          >
+            <X size={20} />
+          </button>
+        </header>
+        <p>Choisissez son nom et la salle où ses œuvres seront exposées.</p>
+        <label>
+          Nom de la collection
+          <input
+            name="name"
+            required
+            maxLength={200}
+            autoFocus
+            placeholder="Ex. Lumières d’été"
+          />
+        </label>
+        <label>
+          Salle d’exposition
+          <select name="roomId" defaultValue={initialRoom} required>
+            {rooms.map((room) => (
+              <option key={room} value={room}>
+                Salle {room.replace("room-", "")}
+              </option>
+            ))}
+          </select>
+        </label>
+        <p className="admin-help">
+          Vous pourrez ensuite y ajouter des œuvres. Les emplacements occupés
+          restent protégés.
+        </p>
+        {error && (
+          <p className="admin-placement-warning" role="alert">
+            {error}
+          </p>
+        )}
+        <footer>
+          <button
+            type="button"
+            className="admin-secondary"
+            onClick={onClose}
+            disabled={busy}
+          >
+            Annuler
+          </button>
+          <button className="admin-primary" disabled={busy}>
+            {busy ? "Création…" : "Créer la collection"}
+          </button>
+        </footer>
+      </form>
+    </dialog>
   );
 }

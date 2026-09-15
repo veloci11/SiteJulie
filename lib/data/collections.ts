@@ -2,11 +2,12 @@ import type { AdminArtwork, Artwork } from "./types";
 
 export const collectionKey = (name: string) =>
   name.trim().toLocaleLowerCase("fr");
-/** Shared by the placement editor and the server: two complete series per room. */
+/** A collection belongs to its chosen room, even before its first publication. */
 export function collectionFitsRoom(
   artwork: Pick<AdminArtwork, "id" | "collection">,
   all: readonly AdminArtwork[],
   roomId: string,
+  collectionRooms: Record<string, string> = {},
 ) {
   const peers = all.filter(
     (a) => a.id !== artwork.id && a.publication === "published",
@@ -15,14 +16,12 @@ export function collectionFitsRoom(
   const existingRoom = name
     ? peers.find((a) => collectionKey(a.collection) === name)?.roomId
     : undefined;
+  const registered = Object.entries(collectionRooms).find(
+    ([key]) => collectionKey(key) === name,
+  )?.[1];
   return (
     (!existingRoom || existingRoom === roomId) &&
-    new Set([
-      ...peers
-        .filter((a) => a.roomId === roomId)
-        .map((a) => collectionKey(a.collection)),
-      name,
-    ]).size <= 2
+    (!registered || registered === roomId)
   );
 }
 type Ordered = Pick<Artwork, "id" | "collection" | "roomId" | "order">;
@@ -30,11 +29,14 @@ type Ordered = Pick<Artwork, "id" | "collection" | "roomId" | "order">;
 export function groupCollections<T extends Ordered>(
   artworks: readonly T[],
   rooms: readonly string[],
+  collectionRooms: Record<string, string> = {},
 ) {
   const groups = new Map<
     string,
     { name: string; roomId: string; artworks: T[] }
   >();
+  for (const [name, roomId] of Object.entries(collectionRooms))
+    groups.set(collectionKey(name), { name, roomId, artworks: [] });
   for (const a of artworks) {
     const key = collectionKey(a.collection);
     const group = groups.get(key) ?? {
@@ -100,15 +102,19 @@ export function moveToCollection(
   a: AdminArtwork,
   name: string,
   all: readonly AdminArtwork[],
+  collectionRooms: Record<string, string> = {},
 ) {
   const peers = all.filter(
     (x) => x.id !== a.id && collectionKey(x.collection) === collectionKey(name),
   );
   const anchor = peers.find((x) => x.publication === "published") ?? peers[0];
+  const registered = Object.entries(collectionRooms).find(
+    ([key]) => collectionKey(key) === collectionKey(name),
+  );
   return {
     ...a,
-    collection: anchor?.collection ?? name,
-    roomId: anchor?.roomId ?? a.roomId,
+    collection: registered?.[0] ?? anchor?.collection ?? name,
+    roomId: registered?.[1] ?? anchor?.roomId ?? a.roomId,
     slotId: "",
     placementOffsetX: 0,
     placementOffsetY: 0,

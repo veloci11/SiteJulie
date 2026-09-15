@@ -28,6 +28,8 @@ import {
   getPublicData,
   saveArtwork,
   addRoom,
+  createCollection,
+  saveSettings,
 } from "@/lib/data/repository";
 import { getMedia, processImage } from "@/lib/media/service";
 import type { AdminArtwork } from "@/lib/data/types";
@@ -186,7 +188,7 @@ describe("Server permissions and persistence", () => {
       "room-2",
     );
   });
-  it("keeps each collection together and allows two collections per room", () => {
+  it("keeps each collection together without an arbitrary two-collection limit", () => {
     const portrait = { ...fixture, collection: "Visages" };
     const next = {
       ...fixture,
@@ -210,14 +212,7 @@ describe("Server permissions and persistence", () => {
         [portrait, landscape],
         ["room-1", "room-2"],
       ).roomId,
-    ).toBe("room-2");
-    expect(() =>
-      resolvePlacement(
-        { ...next, id: "third", collection: "Soies", slotId: "room-1-slot-06" },
-        [portrait, landscape],
-        ["room-1", "room-2"],
-      ),
-    ).toThrow("deux collections maximum");
+    ).toBe("room-1");
     expect(() =>
       resolvePlacement(
         { ...next, roomId: "room-2", slotId: "room-2-slot-01" },
@@ -378,5 +373,63 @@ describe("Collection-local order and safe moves", () => {
       }),
     ).rejects.toMatchObject({ status: 409 });
     expect(await getAdminData()).toEqual(data);
+  });
+});
+
+describe("Collection creation", () => {
+  it("requires an administrator and rejects unavailable rooms", async () => {
+    await expect(
+      createCollection({ name: "Nouvelle", roomId: "room-1" }),
+    ).rejects.toMatchObject({ status: 401 });
+    await enterDemo();
+    await expect(
+      createCollection({ name: "Nouvelle", roomId: "room-4" }),
+    ).rejects.toThrow("salle n’existe pas");
+    await expect(
+      createCollection({ name: "  ", roomId: "room-1" }),
+    ).rejects.toThrow("nom de collection");
+  });
+  it("persists an empty collection and anchors its first artwork in the chosen room", async () => {
+    await enterDemo();
+    await addRoom();
+    await createCollection({ name: "  Lumières  ", roomId: "room-2" });
+    expect((await getAdminData()).settings.collectionRooms).toEqual({
+      Lumières: "room-2",
+    });
+    await expect(
+      createCollection({ name: "LUMIÈRES", roomId: "room-1" }),
+    ).rejects.toMatchObject({ status: 409 });
+    const saved = await saveArtwork({
+      ...fixture,
+      collection: "Lumières",
+      slotId: "",
+    });
+    expect(saved.roomId).toBe("room-2");
+    expect(saved.slotId).toMatch(/^room-2-/);
+    expect(saved.order).toBe(0);
+    // Saving text from a stale tab cannot erase the newly created collection.
+    await saveSettings(blankSettings);
+    expect((await getAdminData()).settings.collectionRooms).toEqual({
+      Lumières: "room-2",
+    });
+    expect((await getPublicData()).artworks[0].collection).toBe("Lumières");
+  });
+  it("does not silently move the collection to another room when its chosen room is full", async () => {
+    const slots = getSlots("room-2");
+    const occupied = slots.map((slot, i) => ({
+      ...fixture,
+      id: `occupied-${i}`,
+      collection: "Existing",
+      roomId: "room-2",
+      slotId: slot.id,
+    }));
+    expect(() =>
+      resolvePlacement(
+        { ...fixture, id: "new", collection: "New", slotId: "" },
+        occupied,
+        ["room-1", "room-2"],
+        { New: "room-2" },
+      ),
+    ).toThrow("Aucun emplacement");
   });
 });

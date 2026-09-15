@@ -50,6 +50,7 @@ export interface SiteSettings {
   instagramUrl?: string;
   coursesText?: string;
   collectionDescriptions?: Record<string, string>;
+  collectionRooms?: Record<string, string>;
   currency: Currency;
 }
 export interface PublicData {

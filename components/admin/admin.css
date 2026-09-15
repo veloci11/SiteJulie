@@ -929,3 +929,71 @@
 .admin-order-number {
   flex-shrink: 0;
 }
+
+.admin-heading-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.admin-empty-collection {
+  padding: 20px;
+  border: 1px dashed #c7c9ba;
+  border-radius: 8px;
+}
+.admin-collection-dialog {
+  margin: auto;
+  width: min(480px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+  border: 1px solid #d8d4c8;
+  border-radius: 12px;
+  padding: 28px;
+  background: #faf7f0;
+  color: #333b2d;
+  box-shadow: 0 24px 90px #18201240;
+}
+.admin-collection-dialog::backdrop {
+  background: #18201266;
+}
+.admin-collection-dialog header,
+.admin-collection-dialog footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.admin-collection-dialog header h2 {
+  margin: 0;
+  font:
+    500 28px Georgia,
+    serif;
+}
+.admin-collection-dialog header button {
+  border: 0;
+  background: none;
+  padding: 10px;
+  cursor: pointer;
+}
+.admin-collection-dialog label {
+  display: grid;
+  gap: 8px;
+  margin: 18px 0;
+  font-size: 14px;
+}
+.admin-collection-dialog input,
+.admin-collection-dialog select {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #cbcabc;
+  border-radius: 5px;
+  background: white;
+  color: inherit;
+  font: inherit;
+}
+.admin-collection-dialog p {
+  line-height: 1.5;
+}
+.admin-collection-dialog footer {
+  margin-top: 24px;
+  flex-wrap: wrap;
+}
