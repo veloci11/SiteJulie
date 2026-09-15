@@ -29,6 +29,15 @@ export default async function About() {
           <h1>{data.settings.aboutTitle}</h1>
           <div className="gold-rule" />
           <p className="long-copy">{data.settings.aboutText}</p>
+          {data.settings.coursesText && (
+            <section className="about-courses">
+              <h2>Cours d’arts visuels</h2>
+              <p className="long-copy">{data.settings.coursesText}</p>
+              <Link className="text-link" href="/contact">
+                Se renseigner sur les cours <ArrowUpRight size={17} />
+              </Link>
+            </section>
+          )}
           <Link className="text-link" href="/oeuvres">
             Explorer les œuvres <ArrowUpRight size={17} />
           </Link>

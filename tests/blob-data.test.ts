@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const fake = vi.hoisted(() => ({
   body: null as string | null,
   etag: 0,
+  weak: false,
+  changeBeforeHead: false,
 }));
 
 vi.mock("@vercel/blob", () => {
@@ -14,9 +16,14 @@ vi.mock("@vercel/blob", () => {
       return {
         statusCode: 200,
         stream: new Response(fake.body).body,
-        blob: { etag: String(fake.etag) },
+        blob: {
+          etag: fake.weak ? `W/${String(fake.etag)}` : String(fake.etag),
+        },
       };
     }),
+    head: vi.fn(async () => ({
+      etag: String(fake.etag + (fake.changeBeforeHead ? 1 : 0)),
+    })),
     put: vi.fn(
       async (
         _path: string,
@@ -40,6 +47,8 @@ import { mutateBlob, readBlob } from "@/lib/data/blob";
 beforeEach(() => {
   fake.body = null;
   fake.etag = 0;
+  fake.weak = false;
+  fake.changeBeforeHead = false;
 });
 
 describe("Vercel Blob catalogue", () => {
@@ -53,5 +62,28 @@ describe("Vercel Blob catalogue", () => {
     const stored = await readBlob();
     expect(stored.rooms).toEqual(["room-1", "room-2"]);
     expect(stored.settings.heroTitle).toBe("Nouvelle exposition");
+  });
+  it("saves compressed catalogues using the matching strong origin validator", async () => {
+    await mutateBlob((store) => {
+      store.settings.heroTitle = "Initial";
+    });
+    fake.weak = true;
+    await mutateBlob((store) => {
+      store.settings.heroTitle = "Saved";
+    });
+    expect((await readBlob()).settings.heroTitle).toBe("Saved");
+  });
+  it("never pairs a stale response body with a newer origin validator", async () => {
+    await mutateBlob((store) => {
+      store.settings.heroTitle = "Original";
+    });
+    fake.weak = true;
+    fake.changeBeforeHead = true;
+    await expect(
+      mutateBlob((store) => {
+        store.settings.heroTitle = "Overwrite";
+      }),
+    ).rejects.toMatchObject({ status: 409 });
+    expect((await readBlob()).settings.heroTitle).toBe("Original");
   });
 });

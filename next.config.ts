@@ -8,8 +8,12 @@ const config: NextConfig = {
     "/api/museum/arrival": [
       "./node_modules/playwright-core/**/*",
       "./public/museum/arrival-empty*.webp",
+      "./content/arrival/**/*",
     ],
-    "/api/museum/arrival/status": ["./node_modules/playwright-core/**/*"],
+    "/api/museum/arrival/status": [
+      "./node_modules/playwright-core/**/*",
+      "./content/arrival/**/*",
+    ],
   },
   outputFileTracingExcludes: {
     "/*": [

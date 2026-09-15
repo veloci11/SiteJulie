@@ -22,7 +22,7 @@ import { MuseumLighting } from "./MuseumLighting";
 import { RenderQuality } from "./RenderQuality";
 import { architecturalMaterial } from "./bakedMaterials";
 import { useSurfaceDetails } from "./SurfaceDetails";
-const HALL = "/museum/hall-contemporary.glb";
+const HALL = "/museum/hall-daylight.glb";
 const SALON = "/museum/extension-contemporary.glb";
 const TERMINAL = "/museum/extension-terminal-contemporary.glb";
 const END_CAP = "/museum/end-cap-contemporary.glb";
@@ -68,7 +68,8 @@ function requestTexture(url: string): TextureRecord {
         texture.anisotropy = 4;
         record.texture = texture;
         resolve();
-        trimTextures();
+        // Suspended renders have no effect references yet. Evicting here
+        // repeatedly reloads a catalogue larger than the cache budget.
       },
       undefined,
       (error) => {
@@ -91,6 +92,7 @@ function useArtworkTextures(urls: string[]) {
   const key = urls.join("|");
   useEffect(() => {
     for (const record of records) record.references++;
+    trimTextures();
     return () => {
       for (const record of records) record.references--;
       queueMicrotask(() => trimTextures(true));
@@ -134,10 +136,11 @@ function Architecture({
     const model = scene.clone(true);
     model.updateMatrixWorld(true);
     for (const [index, slot] of getSlots(roomId).entries()) {
-      const name = `anchor_slot_${String(index + 1).padStart(2, "0")}`;
+      const name = `anchor_slot_${String(slot.anchorIndex ?? index + 1).padStart(2, "0")}`;
       const anchor = model.getObjectByName(name);
       if (!anchor) throw new Error(`Ancre GLB absente : ${name}`);
       const point = anchor.getWorldPosition(new Vector3());
+      point.y += slot.anchorOffsetY ?? 0;
       if (
         point.distanceTo(
           new Vector3(
@@ -238,7 +241,7 @@ function RoomFigs({ roomId }: { roomId: string }) {
 export function MuseumScene(props: MuseumProps) {
   const { data, destination, onReady, onArrive } = props;
   const targetRoom = roomForDestination(destination, data);
-  // Eight works are ready before the first visit; changing room never suspends
+  // The current catalogue is ready before the first visit; changing room never suspends
   // the active camera or removes the previously visible paintings.
   const artworks = data.artworks;
   const textures = useArtworkTextures(artworks.map((a) => a.image));
@@ -315,15 +318,36 @@ export function MuseumScene(props: MuseumProps) {
     // onError is stable in MuseumShell; target changes only move the camera.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scene, gl, camera, data, artworks.length, invalidate]);
-  const frameCount = useRef(0);
-  useFrame(() => {
+  const frameStats = useRef({
+    count: 0,
+    lastReport: 0,
+    samples: [] as number[],
+  });
+  useFrame((_, delta) => {
+    const stats = frameStats.current;
+    stats.count++;
+    // Exclude idle demand-rendering gaps; collect real active frame timings.
+    if (delta > 0 && delta < 0.15) stats.samples.push(delta * 1000);
+    const now = performance.now();
+    if (now - stats.lastReport < 1000) return;
+    stats.lastReport = now;
     const canvas = gl.domElement;
-    canvas.dataset.frameCount = String(++frameCount.current);
+    canvas.dataset.frameCount = String(stats.count);
     canvas.dataset.pixelRatio = gl.getPixelRatio().toFixed(4);
     canvas.dataset.drawingBuffer = `${canvas.width}x${canvas.height}`;
     canvas.dataset.drawCalls = String(gl.info.render.calls);
     canvas.dataset.triangles = String(gl.info.render.triangles);
     canvas.dataset.textures = String(gl.info.memory.textures);
+    if (stats.samples.length >= 12) {
+      const ordered = stats.samples.sort((a, b) => a - b);
+      canvas.dataset.frameMedianMs =
+        ordered[Math.floor(ordered.length * 0.5)].toFixed(1);
+      canvas.dataset.frameP95Ms =
+        ordered[
+          Math.min(ordered.length - 1, Math.floor(ordered.length * 0.95))
+        ].toFixed(1);
+    }
+    stats.samples.length = 0;
   }, -2);
   return (
     <>

@@ -1607,3 +1607,19 @@ select:focus-visible {
   white-space: nowrap;
   opacity: 0.7;
 }
+
+.collection-copy {
+  max-width: 850px;
+  white-space: pre-line;
+  line-height: 1.8;
+  margin: 0 0 30px;
+  color: #65574a;
+}
+.about-courses {
+  margin-top: 36px;
+  padding-top: 24px;
+  border-top: 1px solid #c9b495;
+}
+.about-courses h2 {
+  font: 400 36px/1.15 var(--serif);
+}

@@ -186,7 +186,7 @@ describe("Server permissions and persistence", () => {
       "room-2",
     );
   });
-  it("keeps a named collection together and gives a new collection an empty room", () => {
+  it("keeps each collection together and allows two collections per room", () => {
     const portrait = { ...fixture, collection: "Visages" };
     const next = {
       ...fixture,
@@ -198,27 +198,33 @@ describe("Server permissions and persistence", () => {
     expect(
       resolvePlacement(next, [portrait], ["room-1", "room-2"]).roomId,
     ).toBe("room-1");
+    const landscape = resolvePlacement(
+      { ...next, collection: "Paysages", slotId: "room-1-slot-02" },
+      [portrait],
+      ["room-1", "room-2"],
+    );
+    expect(landscape.roomId).toBe("room-1");
     expect(
       resolvePlacement(
-        { ...next, collection: "Paysages" },
-        [portrait],
+        { ...next, id: "third", collection: "Soies" },
+        [portrait, landscape],
         ["room-1", "room-2"],
       ).roomId,
     ).toBe("room-2");
     expect(() =>
       resolvePlacement(
-        { ...next, collection: "Paysages", slotId: "room-1-slot-02" },
-        [portrait],
+        { ...next, id: "third", collection: "Soies", slotId: "room-1-slot-06" },
+        [portrait, landscape],
         ["room-1", "room-2"],
       ),
-    ).toThrow("propre salle");
+    ).toThrow("deux collections maximum");
     expect(() =>
       resolvePlacement(
         { ...next, roomId: "room-2", slotId: "room-2-slot-01" },
         [portrait],
         ["room-1", "room-2"],
       ),
-    ).toThrow("propre salle");
+    ).toThrow("collection reste dans sa salle");
   });
 });
 describe("Actual image decoding", () => {
@@ -363,7 +369,13 @@ describe("Collection-local order and safe moves", () => {
     const data = await getAdminData();
     const a = data.artworks[0];
     await expect(
-      saveArtwork({ ...a, collection: "Unknown", order: 0 }),
+      saveArtwork({
+        ...a,
+        collection: "Paysages",
+        roomId: "room-2",
+        slotId: "room-2-slot-02",
+        order: 0,
+      }),
     ).rejects.toMatchObject({ status: 409 });
     expect(await getAdminData()).toEqual(data);
   });

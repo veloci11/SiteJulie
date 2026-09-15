@@ -1,5 +1,5 @@
 import "server-only";
-import { BlobPreconditionFailedError, get, put } from "@vercel/blob";
+import { BlobPreconditionFailedError, get, head, put } from "@vercel/blob";
 import type { LocalStore, UploadRecord } from "./local";
 import {
   artworkSchema,
@@ -53,7 +53,7 @@ function parseStore(value: unknown): LocalStore {
   };
 }
 
-async function readWithEtag() {
+async function readWithEtag(forWrite = false) {
   try {
     const result = await get(CATALOG_PATH, {
       access: "private",
@@ -63,7 +63,20 @@ async function readWithEtag() {
     if (result.statusCode !== 200 || !result.stream)
       throw new Error("Réponse de stockage incomplète");
     const raw = await new Response(result.stream).json();
-    return { store: parseStore(raw), etag: result.blob.etag };
+    let etag = result.blob.etag;
+    if (forWrite && etag.startsWith("W/")) {
+      // The CDN compresses larger JSON responses and returns a weak GET ETag.
+      // Conditional writes need the origin's strong validator. Check that it
+      // still describes this exact read before accepting it for the write.
+      const metadata = await head(CATALOG_PATH);
+      if (etag.slice(2) !== metadata.etag)
+        throw new ServiceError(
+          "Le catalogue a changé pendant la lecture. Réessayez.",
+          409,
+        );
+      etag = metadata.etag;
+    }
+    return { store: parseStore(raw), etag };
   } catch (error) {
     if (
       error &&
@@ -92,7 +105,7 @@ export function mutateBlob<T>(
     .catch(() => {})
     .then(async () => {
       for (let attempt = 0; attempt < 4; attempt++) {
-        const { store, etag } = await readWithEtag();
+        const { store, etag } = await readWithEtag(true);
         const candidate = structuredClone(store);
         const result = await fn(candidate);
         try {

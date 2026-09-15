@@ -2,7 +2,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { useCursor } from "@react-three/drei";
 import { useThree } from "@react-three/fiber";
-import { CanvasTexture, SRGBColorSpace, Texture, Vector3 } from "three";
+import {
+  BoxGeometry,
+  CanvasTexture,
+  SRGBColorSpace,
+  Texture,
+  Vector3,
+} from "three";
+import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import type { Artwork, Destination } from "@/lib/data/types";
 import {
   artworkSize,
@@ -200,9 +207,51 @@ export function ArtworkFrame({ artwork, texture, selected, onSelect }: Props) {
     viewport.width,
     viewport.height,
   ]);
+  const dimensions = slot
+    ? artworkSize(artwork, slot)
+    : { width: 1, height: 1 };
+  const { width: w, height: h } = dimensions;
+  const frameParts = useMemo(() => {
+    // Identical materials share one draw, while preserving every original bevel
+    // and position. Combining geometries does not change artwork hit testing.
+    const frame = 0.045;
+    const rim: BoxGeometry[] = [],
+      inlay: BoxGeometry[] = [];
+    for (const s of [1, -1]) {
+      rim.push(
+        new BoxGeometry(frame, h + 0.09, 0.04).translate(
+          s * (w / 2 + frame / 2),
+          0,
+          0.147,
+        ),
+      );
+      rim.push(
+        new BoxGeometry(w + 0.09, frame, 0.04).translate(
+          0,
+          s * (h / 2 + frame / 2),
+          0.147,
+        ),
+      );
+      inlay.push(
+        new BoxGeometry(0.008, h, 0.01).translate(
+          s * (w / 2 + 0.002),
+          0,
+          0.149,
+        ),
+      );
+    }
+    const merged = { rim: mergeGeometries(rim), inlay: mergeGeometries(inlay) };
+    for (const part of [...rim, ...inlay]) part.dispose();
+    return merged;
+  }, [w, h]);
+  useEffect(
+    () => () => {
+      frameParts.rim.dispose();
+      frameParts.inlay.dispose();
+    },
+    [frameParts],
+  );
   if (!slot) return null;
-  const { width: w, height: h } = artworkSize(artwork, slot),
-    frame = 0.045;
   const metal =
     artwork.frameStyle === "brass"
       ? "#ad8248"
@@ -259,34 +308,20 @@ export function ArtworkFrame({ artwork, texture, selected, onSelect }: Props) {
             toneMapped={false}
           />
         </mesh>
-        {[1, -1].map((s) => (
-          <group key={s}>
-            <mesh position={[s * (w / 2 + frame / 2), 0, 0.147]} castShadow>
-              <boxGeometry args={[frame, h + 0.09, 0.04]} />
-              <meshStandardMaterial
-                color={metal}
-                metalness={metalness}
-                roughness={0.28}
-              />
-            </mesh>
-            <mesh position={[0, s * (h / 2 + frame / 2), 0.147]} castShadow>
-              <boxGeometry args={[w + 0.09, frame, 0.04]} />
-              <meshStandardMaterial
-                color={metal}
-                metalness={metalness}
-                roughness={0.28}
-              />
-            </mesh>
-            <mesh position={[s * (w / 2 + 0.002), 0, 0.149]}>
-              <boxGeometry args={[0.008, h, 0.01]} />
-              <meshStandardMaterial
-                color="#dec59a"
-                metalness={0.4}
-                roughness={0.3}
-              />
-            </mesh>
-          </group>
-        ))}
+        <mesh geometry={frameParts.rim} castShadow>
+          <meshStandardMaterial
+            color={metal}
+            metalness={metalness}
+            roughness={0.28}
+          />
+        </mesh>
+        <mesh geometry={frameParts.inlay}>
+          <meshStandardMaterial
+            color="#dec59a"
+            metalness={0.4}
+            roughness={0.3}
+          />
+        </mesh>
       </group>
       <mesh position={[0, -h / 2 - CARTEL_GAP, -0.019]}>
         <boxGeometry args={[CARTEL_WIDTH, CARTEL_HEIGHT, 0.006]} />

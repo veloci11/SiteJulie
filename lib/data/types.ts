@@ -1,4 +1,5 @@
-export type Availability = "available" | "reserved" | "sold";
+export type Availability =
+  "available" | "reserved" | "sold" | "private_collection";
 export type Publication = "draft" | "published" | "archived";
 export type FrameStyle = "brass" | "oak" | "white";
 export type Currency = "EUR" | "CHF" | "USD";
@@ -46,6 +47,9 @@ export interface SiteSettings {
   contactTitle: string;
   contactText: string;
   email: string;
+  instagramUrl?: string;
+  coursesText?: string;
+  collectionDescriptions?: Record<string, string>;
   currency: Currency;
 }
 export interface PublicData {

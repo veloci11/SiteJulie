@@ -29,7 +29,7 @@ export function arrivalFingerprint(
   return createHash("sha256")
     .update(
       JSON.stringify({
-        sceneVersion: "contemporary-quiet-walls-v7-texture",
+        sceneVersion: "contemporary-vaulted-blue-clouds-v16-floor-eye205",
         rooms: data.rooms,
         artworks,
       }),

@@ -35,6 +35,7 @@ import {
   priceLabel,
 } from "@/lib/public";
 import { getRoomName } from "@/lib/museum/config";
+import { groupCollections } from "@/lib/data/collections";
 import ContactActions from "@/components/public/ContactActions";
 import { useLiveMuseumData, useRoomPreviewVersion } from "./useLiveMuseumData";
 
@@ -117,6 +118,9 @@ export default function MuseumShell({
   );
   const [filter, setFilter] = useState("all");
   const [seenHint, setSeenHint] = useState(false);
+  const [selectedCollection, setSelectedCollection] = useState<string | null>(
+    null,
+  );
   const [tourArtworkId, setTourArtworkId] = useState<string | null>(null);
   const dialog = useRef<HTMLDialogElement>(null);
   const editorialDialog = useRef<HTMLDialogElement>(null);
@@ -151,14 +155,33 @@ export default function MuseumShell({
   )
     lastKnownRoom.current = roomId;
   const roomArtworks = data.artworks.filter((a) => a.roomId === roomId);
+  const primaryCollection = roomArtworks.find(
+    (a) => a.slotId === `${roomId}-slot-01`,
+  )?.collection;
+  const roomCollections = groupCollections(roomArtworks, data.rooms).sort(
+    (a, b) =>
+      Number(b.name === primaryCollection) -
+      Number(a.name === primaryCollection),
+  );
+  const currentCollection =
+    roomCollections.find((g) => g.name === selectedCollection) ??
+    roomCollections[0];
+  const collectionArtworks = currentCollection?.artworks ?? [];
+  const nextRoomId =
+    data.rooms[(data.rooms.indexOf(roomId) + 1) % data.rooms.length];
+  useEffect(() => {
+    if (activeArtwork) setSelectedCollection(activeArtwork.collection);
+  }, [activeArtwork?.id, activeArtwork?.collection]);
   const overview = destination.kind === "home" || destination.kind === "room";
   const tourArtwork = overview
-    ? roomArtworks.find((a) => a.id === tourArtworkId)
+    ? (collectionArtworks.find((a) => a.id === tourArtworkId) ??
+      collectionArtworks[0])
     : undefined;
-  const activeIndex = roomArtworks.findIndex((a) => a.id === activeArtwork?.id);
+  const activeIndex = collectionArtworks.findIndex(
+    (a) => a.id === activeArtwork?.id,
+  );
   const showDetails = ready && !failed && !!activeArtwork && !traveling;
-  const showEditorial =
-    !failed && (destination.kind === "about" || destination.kind === "contact");
+  const showEditorial = destination.kind === "about" || destination.kind === "contact";
   const showHome =
     !failed &&
     !traveling &&
@@ -370,7 +393,7 @@ export default function MuseumShell({
   }, []);
   const adjacent = useCallback(
     (offset: number) => {
-      const collection = data.artworks.filter((a) => a.roomId === roomId);
+      const collection = collectionArtworks;
       if (!collection.length) return;
       const visibleIndex =
         activeIndex >= 0
@@ -380,13 +403,13 @@ export default function MuseumShell({
       const index = (base + offset + collection.length) % collection.length;
       navigate({ kind: "artwork", artworkId: collection[index].id });
     },
-    [activeIndex, data.artworks, roomId, navigate, tourArtwork?.id],
+    [activeIndex, collectionArtworks, navigate, tourArtwork?.id],
   );
   useEffect(() => {
     const key = (event: KeyboardEvent) => {
       if (
         (event.target as HTMLElement).closest(
-          "input,textarea,select,[contenteditable=true]",
+          "input,textarea,select,[contenteditable=true],[role=tablist]",
         ) ||
         dialog.current?.open ||
         editorialDialog.current?.open
@@ -636,11 +659,9 @@ export default function MuseumShell({
           </div>
         )}
         {showHome && (
-          <div
-            className={`visit-hero ${destination.kind === "home" ? "is-introduction" : "is-room-label"}`}
-          >
+          <div className="visit-hero is-introduction">
             <p className="eyebrow">{getRoomName(roomId, data.artworks)}</p>
-            {destination.kind === "home" && (
+            {overview && (
               <>
                 <h1>
                   {data.settings.heroTitle.split("\n").map((line, i) => (
@@ -651,7 +672,10 @@ export default function MuseumShell({
                 <div className="visit-hero-actions">
                   <button
                     className="visit-primary"
-                    onClick={() => openDrawer("artworks")}
+                    onClick={() => {
+                      setFilter(currentCollection?.name ?? "all");
+                      openDrawer("artworks");
+                    }}
                   >
                     Découvrir les œuvres <ArrowRight size={18} />
                   </button>
@@ -683,6 +707,38 @@ export default function MuseumShell({
             </button>
           </div>
         )}
+        {ready && !failed && overview && tourArtwork && (
+          <aside
+            className="visit-preview"
+            aria-label="Au fil de la visite"
+            data-artwork-id={tourArtwork.id}
+          >
+            <span className="eyebrow">{tourArtwork.collection}</span>
+            <button
+              className="visit-preview-work"
+              onClick={() => selectArtwork(tourArtwork)}
+              aria-label={`Voir ${tourArtwork.title}`}
+            >
+              <img src={tourArtwork.thumbnail} alt={tourArtwork.alt} />
+              <span className="visit-preview-title">{tourArtwork.title}</span>
+              <span className="visit-preview-price">
+                {priceLabel(tourArtwork)} <ArrowUpRight size={15} />
+              </span>
+            </button>
+            <p className="visit-preview-description">
+              {data.settings.collectionDescriptions?.[tourArtwork.collection]}
+            </p>
+            <button
+              className="visit-complete"
+              onClick={() => {
+                setFilter(tourArtwork.collection);
+                openDrawer("artworks");
+              }}
+            >
+              Explorer cette collection <ArrowRight size={14} />
+            </button>
+          </aside>
+        )}
         {showDetails && activeArtwork && (
           <aside
             className="visit-details"
@@ -690,7 +746,7 @@ export default function MuseumShell({
           >
             <div className="visit-details-top">
               <span className="eyebrow">
-                {getRoomName(roomId, data.artworks)}
+                {activeArtwork.collection || getRoomName(roomId, data.artworks)}
               </span>
               <button
                 className="visit-icon"
@@ -746,7 +802,7 @@ export default function MuseumShell({
         {!failed && (
           <dialog
             ref={editorialDialog}
-            className="visit-editorial"
+            className="visit-editorial visit-editorial-paper"
             onCancel={(event) => {
               event.preventDefault();
               closeEditorial();
@@ -775,44 +831,78 @@ export default function MuseumShell({
             >
               <X size={18} />
             </button>
-            <p className="eyebrow">
-              {destination.kind === "about"
-                ? "Derrière les couleurs"
-                : "Un premier échange"}
-            </p>
-            <h2>
-              {destination.kind === "about"
-                ? data.settings.aboutTitle
-                : data.settings.contactTitle}
-            </h2>
-            <p className="visit-editorial-copy">
-              {destination.kind === "about"
-                ? data.settings.aboutText
-                : data.settings.contactText}
-            </p>
-            {destination.kind === "about" ? (
-              <button
-                className="visit-primary"
-                onClick={() => navigate({ kind: "contact" })}
-              >
-                Entrer en contact <ArrowRight size={16} />
-              </button>
-            ) : (
-              <>
-                <ContactActions
-                  settings={data.settings}
-                  artwork={contactArtwork}
-                />
-                {contactArtwork && (
+            <div className="visit-editorial-art">
+              <img
+                src={
+                  (
+                    data.artworks.find((a) => a.id === "oeuvre-06") ??
+                    data.artworks[0]
+                  )?.image
+                }
+                alt={
+                  (
+                    data.artworks.find((a) => a.id === "oeuvre-06") ??
+                    data.artworks[0]
+                  )?.alt ?? ""
+                }
+              />
+              <span>
+                {data.settings.artistName}
+                <small>La couleur comme langage</small>
+              </span>
+            </div>
+            <div className="visit-editorial-body">
+              <p className="eyebrow">
+                {destination.kind === "about"
+                  ? "Derrière les couleurs"
+                  : "Un premier échange"}
+              </p>
+              <h2>
+                {destination.kind === "about"
+                  ? data.settings.aboutTitle
+                  : data.settings.contactTitle}
+              </h2>
+              <p className="visit-editorial-copy">
+                {destination.kind === "about"
+                  ? data.settings.aboutText
+                  : data.settings.contactText}
+              </p>
+              {destination.kind === "about" ? (
+                <>
+                  {data.settings.coursesText && (
+                    <details className="visit-courses">
+                      <summary>
+                        Cours d’arts visuels <ChevronDown size={17} />
+                      </summary>
+                      <p className="visit-editorial-copy">
+                        {data.settings.coursesText}
+                      </p>
+                    </details>
+                  )}
                   <button
-                    className="visit-general"
+                    className="visit-primary"
                     onClick={() => navigate({ kind: "contact" })}
                   >
-                    Faire une demande générale
+                    Entrer en contact <ArrowRight size={16} />
                   </button>
-                )}
-              </>
-            )}
+                </>
+              ) : (
+                <>
+                  <ContactActions
+                    settings={data.settings}
+                    artwork={contactArtwork}
+                  />
+                  {contactArtwork && (
+                    <button
+                      className="visit-general"
+                      onClick={() => navigate({ kind: "contact" })}
+                    >
+                      Faire une demande générale
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
           </dialog>
         )}
       </main>
@@ -821,14 +911,23 @@ export default function MuseumShell({
           <div className="visit-dock-heading">
             <button
               className="visit-room-switch"
-              aria-label={`Choisir une collection : ${getRoomName(roomId, data.artworks)}`}
+              aria-label="Changer de salle"
               aria-haspopup="dialog"
               aria-expanded={drawer === "rooms"}
-              title="Choisir une collection"
+              title="Choisir une salle"
               onClick={() => openDrawer("rooms")}
             >
-              <span>{getRoomName(roomId, data.artworks)}</span>
+              <Grid2X2 size={16} />
+              <span>Changer de salle</span>
               <ChevronDown className="visit-room-chevron" size={14} />
+            </button>
+            <button
+              className="visit-room-next"
+              onClick={() => navigate({ kind: "room", roomId: nextRoomId })}
+              disabled={data.rooms.length < 2}
+              aria-label={`Salle suivante : ${getRoomName(nextRoomId, data.artworks)}`}
+            >
+              Salle suivante <ArrowRight size={16} />
             </button>
             <nav
               className="visit-work-steps"
@@ -838,7 +937,7 @@ export default function MuseumShell({
                 className="visit-work-step"
                 aria-label="Œuvre précédente"
                 onClick={() => adjacent(-1)}
-                disabled={!roomArtworks.length}
+                disabled={!collectionArtworks.length}
               >
                 <ChevronLeft size={18} />
                 <span>Précédente</span>
@@ -847,7 +946,7 @@ export default function MuseumShell({
                 className="visit-work-step"
                 aria-label="Œuvre suivante"
                 onClick={() => adjacent(1)}
-                disabled={!roomArtworks.length}
+                disabled={!collectionArtworks.length}
               >
                 <span>Suivante</span>
                 <ChevronRight size={18} />
@@ -855,34 +954,73 @@ export default function MuseumShell({
             </nav>
           </div>
           <div
+            className="visit-series-tabs"
+            role="tablist"
+            aria-label="Collections de cette salle"
+          >
+            {roomCollections.map((group) => (
+              <button
+                key={group.name}
+                role="tab"
+                aria-selected={group.name === currentCollection?.name}
+                aria-controls="visit-room-filmstrip"
+                onClick={() => setSelectedCollection(group.name)}
+                onKeyDown={(event) => {
+                  if (!["ArrowLeft", "ArrowRight"].includes(event.key)) return;
+                  event.preventDefault();
+                  const index = roomCollections.findIndex(
+                    (g) => g.name === group.name,
+                  );
+                  const next =
+                    (index +
+                      (event.key === "ArrowRight" ? 1 : -1) +
+                      roomCollections.length) %
+                    roomCollections.length;
+                  setSelectedCollection(roomCollections[next].name);
+                  (
+                    event.currentTarget.parentElement?.children[
+                      next
+                    ] as HTMLButtonElement
+                  )?.focus();
+                }}
+              >
+                {group.name}
+                <span>{group.artworks.length} œuvres</span>
+              </button>
+            ))}
+          </div>
+          <div
+            role="tabpanel"
             ref={filmstrip}
             id="visit-room-filmstrip"
             className="visit-filmstrip"
-            aria-label={`Les œuvres de ${getRoomName(roomId, data.artworks)}`}
+            aria-label={`Les œuvres de ${currentCollection?.name ?? "cette collection"}`}
           >
-            {roomArtworks.map((a) => (
+            {collectionArtworks.map((a) => (
               <button
                 key={a.id}
                 className="visit-film-card"
                 data-availability={a.availability}
                 data-artwork={a.id}
                 aria-label={`Découvrir ${a.title}`}
-                aria-describedby={`film-price-${a.id} film-status-${a.id}`}
+                aria-describedby={`film-price-${a.id}${priceLabel(a) !== availabilityLabel(a) ? ` film-status-${a.id}` : ""}`}
                 aria-pressed={a.id === activeArtwork?.id}
                 onClick={() => selectArtwork(a)}
               >
                 <img src={a.thumbnail} alt={a.alt} />
                 <span>
-                  {a.title}
+                  <span className="visit-film-title">{a.title}</span>
                   <small id={`film-price-${a.id}`} className="visit-film-price">
                     {priceLabel(a)}
                   </small>
-                  <small
-                    id={`film-status-${a.id}`}
-                    className="visit-film-status"
-                  >
-                    {availabilityLabel(a)}
-                  </small>
+                  {priceLabel(a) !== availabilityLabel(a) && (
+                    <small
+                      id={`film-status-${a.id}`}
+                      className="visit-film-status"
+                    >
+                      {availabilityLabel(a)}
+                    </small>
+                  )}
                 </span>
                 {a.id === activeArtwork?.id && (
                   <span className="visit-selected">
@@ -916,7 +1054,7 @@ export default function MuseumShell({
                 {drawer === "artworks"
                   ? "Les œuvres"
                   : drawer === "rooms"
-                    ? "Les collections"
+                    ? "Les salles"
                     : "Bienvenue"}
               </h2>
             </div>
@@ -937,6 +1075,10 @@ export default function MuseumShell({
               <button onClick={() => setDrawer("artworks")}>
                 <Grid2X2 size={20} />
                 Les œuvres <ArrowRight size={16} />
+              </button>
+              <button onClick={() => setDrawer("rooms")}>
+                <Compass size={20} />
+                Changer de salle <ArrowRight size={16} />
               </button>
               <button onClick={() => navigate({ kind: "about" })}>
                 À propos <ArrowUpRight size={16} />
@@ -973,13 +1115,13 @@ export default function MuseumShell({
                   <h3>{getRoomName(id, data.artworks)}</h3>
                   <p>
                     {index === 0
-                      ? "Une première collection, dans la lumière du grand salon."
-                      : "Une autre collection, une nouvelle atmosphère."}
+                      ? "Des visages aux paysages intérieurs, dans la lumière du grand salon."
+                      : "Paysages rêvés et métamorphoses se rencontrent dans le salon."}
                   </p>
                   <span className="visit-room-enter">
                     {roomId === id
-                      ? "Collection actuelle"
-                      : "Explorer cette collection"}
+                      ? "Salle actuelle"
+                      : "Entrer dans cette salle"}
                     <ArrowRight size={18} />
                   </span>
                 </button>
@@ -998,19 +1140,25 @@ export default function MuseumShell({
                 >
                   Toutes les œuvres
                 </button>
-                {data.rooms.map((id) => (
+                {groupCollections(data.artworks, data.rooms).map((group) => (
                   <button
-                    key={id}
-                    aria-pressed={filter === id}
-                    onClick={() => setFilter(id)}
+                    key={group.name}
+                    aria-pressed={filter === group.name}
+                    onClick={() => setFilter(group.name)}
                   >
-                    {getRoomName(id, data.artworks)}
+                    {group.name}
                   </button>
                 ))}
               </div>
+              {filter !== "all" &&
+                data.settings.collectionDescriptions?.[filter] && (
+                  <p className="visit-collection-description">
+                    {data.settings.collectionDescriptions[filter]}
+                  </p>
+                )}
               <div className="visit-art-grid">
                 {data.artworks
-                  .filter((a) => filter === "all" || a.roomId === filter)
+                  .filter((a) => filter === "all" || a.collection === filter)
                   .map((a) => (
                     <button
                       key={a.id}
@@ -1029,7 +1177,7 @@ export default function MuseumShell({
                         <ArrowUpRight size={16} />
                       </span>
                       <small id={`selection-price-${a.id}`}>
-                        {getRoomName(a.roomId, data.artworks)} · {priceLabel(a)}
+                        {a.collection} · {priceLabel(a)}
                       </small>
                       <small id={`selection-status-${a.id}`}>
                         {availabilityLabel(a)}

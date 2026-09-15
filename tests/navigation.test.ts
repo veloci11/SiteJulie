@@ -349,12 +349,13 @@ describe("Two intimate rooms and mobile navigation", () => {
         number[]
       >;
       for (const [i, slot] of getSlots(roomId).entries()) {
-        const anchor = anchors[`slot_${String(i + 1).padStart(2, "0")}`];
+        const anchor =
+          anchors[`slot_${String(slot.anchorIndex ?? i + 1).padStart(2, "0")}`];
         expect(anchor).toBeDefined();
         expect(
           Math.hypot(
             anchor[0] - slot.position[0],
-            anchor[1] - slot.position[1],
+            anchor[1] + (slot.anchorOffsetY ?? 0) - slot.position[1],
             anchor[2] + roomOffset(roomId) - slot.position[2],
           ),
         ).toBeLessThan(0.0001);
@@ -362,15 +363,15 @@ describe("Two intimate rooms and mobile navigation", () => {
     }
   });
   it("uses a real landscape rectangle on a 667 by 375 phone", () => {
-    expect(artworkInsets(390, 844)).toEqual({ top: 88, bottom: 216, right: 0 });
+    expect(artworkInsets(390, 844)).toEqual({ top: 88, bottom: 252, right: 0 });
     expect(artworkInsets(667, 375)).toEqual({
       top: 64,
-      bottom: 96,
+      bottom: 124,
       right: 266.8,
     });
     expect(artworkInsets(1440, 900)).toEqual({
       top: 96,
-      bottom: 164,
+      bottom: 210,
       right: 330,
     });
   });
@@ -798,8 +799,8 @@ describe("Comfortable walking attention", () => {
     const walk = createAmbientWalk("room-1", data.rooms, placements);
     const empty = createAmbientWalk("room-1", data.rooms);
     expect(walk.period).toBeGreaterThan(80);
-    expect(walk.period).toBeLessThan(105);
-    expect(walk.speed).toBe(0.35);
+    expect(walk.period).toBeLessThan(140);
+    expect(walk.speed).toBe(0.28);
     expect(empty.speed).toBeLessThanOrEqual(walk.speed);
     for (const [width, height] of [
       [390, 844],

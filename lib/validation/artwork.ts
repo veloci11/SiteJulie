@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { collectionFitsRoom } from "@/lib/data/collections";
 import type { AdminArtwork, Artwork, SiteSettings } from "@/lib/data/types";
 import { getSlots } from "@/lib/museum/config";
 import { placementIssue } from "./placement";
@@ -37,7 +38,12 @@ export const artworkSchema = z
     alt: z.string().max(500),
     priceMinor: z.number().int().min(0).max(10000000000).nullable(),
     currency: z.enum(["EUR", "CHF", "USD"]),
-    availability: z.enum(["available", "reserved", "sold"]),
+    availability: z.enum([
+      "available",
+      "reserved",
+      "sold",
+      "private_collection",
+    ]),
     publication: z.enum(["draft", "published", "archived"]),
     priceVisibility: z.enum(["public", "on_request"]),
     roomId: z.string().regex(/^room-[1-9]\d*$/),
@@ -68,6 +74,24 @@ export const settingsSchema = z.object({
   contactTitle: z.string().max(100),
   contactText: z.string().max(3000),
   email: z.union([z.literal(""), z.email()]),
+  instagramUrl: z
+    .union([
+      z.literal(""),
+      z.url().refine((value) => {
+        const url = new URL(value);
+        return (
+          url.protocol === "https:" &&
+          ["www.instagram.com", "instagram.com"].includes(url.hostname) &&
+          !url.username &&
+          !url.password
+        );
+      }, "Utilisez un lien Instagram HTTPS."),
+    ])
+    .optional(),
+  coursesText: z.string().max(6000).optional(),
+  collectionDescriptions: z
+    .record(z.string().max(200), z.string().max(6000))
+    .optional(),
   currency: z.enum(["EUR", "CHF", "USD"]),
 });
 export function publicArtwork(a: AdminArtwork): Artwork {
@@ -114,19 +138,7 @@ export function resolvePlacement(
       .filter((x) => x.id !== a.id && x.publication === "published")
       .map((x) => x.slotId),
   );
-  const collectionKey = (value: string) => value.trim().toLocaleLowerCase("fr");
-  const peers = all.filter(
-    (x) => x.id !== a.id && x.publication === "published",
-  );
-  const collection = collectionKey(a.collection);
-  const collectionRoom = collection
-    ? peers.find((x) => collectionKey(x.collection) === collection)?.roomId
-    : undefined;
-  const roomCompatible = (roomId: string) =>
-    (!collectionRoom || collectionRoom === roomId) &&
-    peers
-      .filter((x) => x.roomId === roomId)
-      .every((x) => collectionKey(x.collection) === collection);
+  const roomCompatible = (roomId: string) => collectionFitsRoom(a, all, roomId);
   const slots = rooms.flatMap(getSlots);
   const ratio = a.imageWidth / a.imageHeight;
   const widthM = a.widthCm
@@ -165,7 +177,7 @@ export function resolvePlacement(
     );
   if (!roomCompatible(slot.roomId))
     throw new ServiceError(
-      "Chaque collection occupe sa propre salle. Choisissez Automatique pour rejoindre sa salle, ou une salle vide pour une nouvelle collection.",
+      "Une collection reste dans sa salle, avec deux collections maximum par salle. Choisissez une salle compatible.",
       409,
     );
   if (!compatible(slot))

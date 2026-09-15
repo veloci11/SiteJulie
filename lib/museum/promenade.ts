@@ -13,8 +13,9 @@ const angle = (a: number, b: number) =>
 const clamp = (x: number, min: number, max: number) =>
   Math.max(min, Math.min(max, x));
 const vector = (v: Vec3) => new Vector3(...v);
-const YAW_SPEED = Math.PI / 9;
-const YAW_ACCELERATION = Math.PI / 5;
+export const PROMENADE_YAW_SPEED = Math.PI / 24; // 7.5 degrees per second
+const YAW_SPEED = PROMENADE_YAW_SPEED;
+const YAW_ACCELERATION = Math.PI / 20;
 
 /** Close to an opening, keep entering the room ahead instead of turning back. */
 export function continuationRoom(sample: CameraMotionSample, rooms: string[]) {
@@ -93,6 +94,9 @@ export function planPromenadeJoin(
         if (tangent.dot(direction) < 0.65) continue;
         for (const factor of [0.35, 0.65]) {
           const lead = clamp(gap * factor, 0.35, 4.5);
+          // Arc length cannot be shorter than the straight gap. Discard only
+          // candidates mathematically unable to improve the accepted route.
+          if (gap + Math.abs(heading) * 3 >= bestScore) continue;
           const curve = new CubicBezierCurve3(
             start,
             start.clone().addScaledVector(direction, lead),
@@ -132,6 +136,10 @@ export function planPromenadeJoin(
             }
             turn += Math.acos(clamp(lastDirection.dot(step), -1, 1));
             length += span;
+            if (length + turn * 0.9 + Math.abs(heading) * 3 >= bestScore) {
+              valid = false;
+              break;
+            }
             previous = point;
             lastDirection = step;
           }
@@ -264,18 +272,34 @@ export class ContinuousPromenade {
         : this.tangent(this.distance);
       const ahead = this.brake
         ? this.tangent(0)
-        : this.point(this.distance + 0.7)
+        : this.point(this.distance + 2.2)
             .sub(this.point(this.distance))
             .normalize();
-      const desiredYaw = Math.atan2(ahead.x, ahead.z);
+      // Anticipate broad bends, but never look across the far side of a tight
+      // merge: that can hold the walking alignment at zero indefinitely.
+      const directionYaw = Math.atan2(direction.x, direction.z);
+      const desiredYaw =
+        directionYaw +
+        clamp(
+          angle(directionYaw, Math.atan2(ahead.x, ahead.z)),
+          -Math.PI / 6,
+          Math.PI / 6,
+        );
       const yawError = angle(current.yaw, desiredYaw);
-      const yawRate = clamp(yawError * 1.5, -YAW_SPEED, YAW_SPEED);
+      const yawRate = clamp(yawError * 0.85, -YAW_SPEED, YAW_SPEED);
+      // A cancelled focus can carry a much faster rotation. Ease that inherited
+      // momentum down promptly, instead of coasting into an extra half-turn.
+      const angularDeceleration = Math.max(
+        YAW_ACCELERATION,
+        (Math.abs(current.yawVelocity) - YAW_SPEED) * 4 +
+          (Math.abs(current.yawVelocity) > YAW_SPEED ? 0.3 : 0),
+      );
       const nextYawRate =
         current.yawVelocity +
         clamp(
           yawRate - current.yawVelocity,
-          -YAW_ACCELERATION * dt,
-          YAW_ACCELERATION * dt,
+          -angularDeceleration * dt,
+          angularDeceleration * dt,
         );
       let position: Vec3;
       let velocity: Vec3;
@@ -300,21 +324,21 @@ export class ContinuousPromenade {
         const alignment = Math.cos(
           angle(current.yaw, Math.atan2(direction.x, direction.z)),
         );
-        const futureDirection = this.tangent(this.distance + 0.5);
+        const futureDirection = this.tangent(this.distance + 1.8);
         const turnAhead =
           Math.abs(
             angle(
               Math.atan2(direction.x, direction.z),
               Math.atan2(futureDirection.x, futureDirection.z),
             ),
-          ) / 0.5;
+          ) / 1.8;
         const cruise = Math.min(
           this.walk.speed,
-          0.16 / Math.max(0.01, turnAhead),
+          0.095 / Math.max(0.01, turnAhead),
         );
         const desiredSpeed = cruise * clamp((alignment - 0.2) / 0.65, 0, 1);
         const nextSpeed =
-          this.speed + clamp(desiredSpeed - this.speed, -1.8 * dt, 0.28 * dt);
+          this.speed + clamp(desiredSpeed - this.speed, -1.8 * dt, 0.16 * dt);
         this.distance += (this.speed + nextSpeed) * 0.5 * dt;
         this.speed = nextSpeed;
         position = this.point(this.distance).toArray() as Vec3;

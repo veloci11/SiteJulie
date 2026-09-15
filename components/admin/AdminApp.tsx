@@ -56,6 +56,7 @@ const availability = {
   available: "Disponible",
   reserved: "Réservée",
   sold: "Vendue",
+  private_collection: "Collection privée",
 };
 const publications = {
   draft: "Brouillon",
@@ -947,19 +948,23 @@ function SettingsEditor({
   onSave: (s: SiteSettings) => void;
 }) {
   const [draft, setDraft] = useState(settings);
-  const field = (key: keyof SiteSettings, label: string, multiline = false) => (
+  const field = (
+    key: Exclude<keyof SiteSettings, "collectionDescriptions">,
+    label: string,
+    multiline = false,
+  ) => (
     <label>
       {label}
       {multiline ? (
         <textarea
           rows={key === "aboutText" ? 8 : 3}
-          value={draft[key]}
+          value={draft[key] ?? ""}
           onChange={(e) => setDraft({ ...draft, [key]: e.target.value })}
         />
       ) : (
         <input
           type={key === "email" ? "email" : "text"}
-          value={draft[key]}
+          value={draft[key] ?? ""}
           onChange={(e) => setDraft({ ...draft, [key]: e.target.value })}
         />
       )}
@@ -971,7 +976,7 @@ function SettingsEditor({
         <div>
           <p className="admin-overline">VOTRE UNIVERS</p>
           <h1>Textes & contact</h1>
-          <p>Votre voix, sur les murs de la galerie.</p>
+          <p>Votre présentation, vos collections et vos coordonnées.</p>
         </div>
       </header>
       <form
@@ -985,18 +990,20 @@ function SettingsEditor({
           <h2>Accueil</h2>
           {field("artistName", "Nom de l’artiste")}
           {field("tagline", "Accroche courte")}
-          {field("heroTitle", "Titre d’accueil")}
+          {field("heroTitle", "Titre d’accueil", true)}
         </section>
         <section className="admin-card">
           <h2>À propos</h2>
-          {field("aboutTitle", "Titre du mur")}
+          {field("aboutTitle", "Titre de la présentation")}
           {field("aboutText", "Présentation", true)}
+          {field("coursesText", "Cours d’arts visuels", true)}
         </section>
         <section className="admin-card">
           <h2>Contact</h2>
-          {field("contactTitle", "Titre du mur")}
+          {field("contactTitle", "Titre du contact")}
           {field("contactText", "Message d’accueil", true)}
           {field("email", "Adresse email publique")}
+          {field("instagramUrl", "Lien Instagram")}
           <small>
             Laissez l’email vide tant que l’adresse n’est pas confirmée. Le
             contact ouvre l’application de messagerie du visiteur.
@@ -1017,6 +1024,29 @@ function SettingsEditor({
               <option>USD</option>
             </select>
           </label>
+        </section>
+        <section className="admin-card">
+          <h2>Les collections</h2>
+          {Object.entries(draft.collectionDescriptions ?? {}).map(
+            ([name, text]) => (
+              <label key={name}>
+                {name}
+                <textarea
+                  rows={5}
+                  value={text}
+                  onChange={(e) =>
+                    setDraft({
+                      ...draft,
+                      collectionDescriptions: {
+                        ...draft.collectionDescriptions,
+                        [name]: e.target.value,
+                      },
+                    })
+                  }
+                />
+              </label>
+            ),
+          )}
         </section>
         <button className="admin-primary" disabled={busy}>
           <Save size={17} />

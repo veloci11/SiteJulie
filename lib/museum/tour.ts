@@ -5,16 +5,17 @@ import {
   motionLookTarget,
   obstaclesForRooms,
   segmentIsClear,
+  CAMERA_EYE_HEIGHT,
   type CameraPose,
   type CameraMotionSample,
 } from "./navigation";
 
 export const TOUR_INITIAL_DELAY = 2;
 export const WALK_ACCELERATION_TIME = 2;
-export const MAX_WALK_SPEED = 0.35;
+export const MAX_WALK_SPEED = 0.28;
 export const MAX_WALK_YAW_RATE = Math.PI / 15;
 export const MAX_ARTWORK_GAZE_RATE = Math.PI / 15;
-export const WALK_EYE_HEIGHT = 1.75;
+export const WALK_EYE_HEIGHT = CAMERA_EYE_HEIGHT;
 
 export function canRunAmbientTour(
   destination: Destination,

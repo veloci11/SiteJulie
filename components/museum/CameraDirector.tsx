@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { addEffect, useFrame, useThree } from "@react-three/fiber";
 import { CameraControls } from "@react-three/drei";
 import CameraControlsImpl from "camera-controls";
@@ -51,6 +51,8 @@ interface Journey {
   id: number;
   motion: CameraMotion;
   startedAt: number | null;
+  elapsed: number;
+  lastFrame: number | null;
   reframe: boolean;
 }
 export function CameraDirector({
@@ -111,6 +113,17 @@ export function CameraDirector({
   const allowedRef = useRef(tourAllowed);
   allowedRef.current = tourAllowed;
   const walkData = useRef<PublicData | null>(null);
+  // Build the room loops once per catalogue update, never during a cancel click.
+  const roomWalks = useMemo(
+    () =>
+      new Map(
+        data.rooms.map((roomId) => [
+          roomId,
+          createAmbientWalk(roomId, data.rooms, data.artworks),
+        ]),
+      ),
+    [data],
+  );
   const appliedSize = useRef({ width: 0, height: 0 });
   const latestId = useRef(navigationId);
   latestId.current = navigationId;
@@ -211,7 +224,7 @@ export function CameraDirector({
       const walk = overview
         ? tour.current.walk?.roomId === roomId && walkData.current === data
           ? tour.current.walk
-          : createAmbientWalk(roomId, data.rooms, data.artworks)
+          : roomWalks.get(roomId)!
         : null;
       walkData.current = data;
       if (walk) tour.current.walk = walk;
@@ -404,6 +417,8 @@ export function CameraDirector({
         // Begin on the first rendered frame, excluding synchronous preparation
         // and GPU compilation from the animation clock (which caused a jump).
         startedAt: null,
+        elapsed: 0,
+        lastFrame: null,
         reframe,
       };
       gl.domElement.dataset.navigationState = reframe
@@ -446,12 +461,22 @@ export function CameraDirector({
     if (now === null) return;
     gl.domElement.dataset.cameraSampleTime = (now * 1000).toFixed(4);
     const activeTime = tour.current.timeline.update(now, allowedRef.current);
-    const activeDelta = Math.max(0, activeTime - previousActiveTime.current);
+    // A menu layout or texture upload must not be paid back as a camera jump.
+    // Advance at most one 30 Hz display step after a missed presentation frame.
+    const activeDelta = Math.min(
+      1 / 30,
+      Math.max(0, activeTime - previousActiveTime.current),
+    );
     previousActiveTime.current = activeTime;
     const current = journey.current;
     if (current) {
       current.startedAt ??= now;
-      const elapsed = now - current.startedAt;
+      current.elapsed +=
+        current.lastFrame === null
+          ? 0
+          : Math.min(1 / 30, Math.max(0, now - current.lastFrame));
+      current.lastFrame = now;
+      const elapsed = current.elapsed;
       gl.domElement.dataset.motionElapsed = elapsed.toFixed(6);
       applySample(sampleCameraMotion(current.motion, elapsed), delta);
       if (elapsed >= current.motion.duration) {

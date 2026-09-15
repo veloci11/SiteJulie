@@ -19,7 +19,7 @@ export const CAMERA_RADIUS = 0.32;
 export const CAMERA_FOV = 50;
 export const MAX_CAMERA_SPEED = 3.2;
 export const MAX_CAMERA_ANGULAR_SPEED = (40 * Math.PI) / 180;
-export const CAMERA_EYE_HEIGHT = 1.75;
+export const CAMERA_EYE_HEIGHT = 2.05;
 export const MAX_CAMERA_ANGULAR_ACCELERATION = Math.PI / 3;
 export const MAX_CAMERA_TRANSLATION_ACCELERATION = 2;
 export const MAX_CAMERA_LATERAL_ACCELERATION = 2.5;
@@ -55,7 +55,7 @@ export function artworkInsets(width: number, height: number) {
   const compactLandscape = height <= 520 && width > height;
   const portrait = width <= 700 && !compactLandscape;
   let top = portrait ? 88 : compactLandscape ? 64 : 96;
-  let bottom = portrait ? 216 : compactLandscape ? 96 : 164;
+  let bottom = portrait ? 252 : compactLandscape ? 124 : 210;
   let right = portrait ? 0 : compactLandscape ? 280 : 330;
   const verticalBudget = Math.max(0, height - Math.max(96, height * 0.38));
   const verticalScale = Math.min(1, verticalBudget / (top + bottom));
@@ -801,8 +801,13 @@ function artworkTravelLook(
     const s = i * step,
       a = point(s - 0.7),
       b = point(s + 0.7);
-    const body = Math.atan2(b[0]-a[0], b[2]-a[2]);
-    const ahead = body + Math.max(-Math.PI/5, Math.min(Math.PI/5, shortestAngle(body,corridor)));
+    const body = Math.atan2(b[0] - a[0], b[2] - a[2]);
+    const ahead =
+      body +
+      Math.max(
+        -Math.PI / 5,
+        Math.min(Math.PI / 5, shortestAngle(body, corridor)),
+      );
     heading += shortestAngle(heading, ahead);
     return (
       from.yaw + (heading - from.yaw) * smooth(s / Math.min(3, length * 0.3))

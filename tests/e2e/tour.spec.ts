@@ -155,7 +155,7 @@ test("continuous home promenade crosses its loop seam without stops, URL changes
   expect(
     Math.max(...cruising.map((s) => Math.abs(s.yawRate))),
   ).toBeLessThanOrEqual(20.01);
-  expect(cruising.every((s) => s.position[1] === 1.75)).toBe(true);
+  expect(cruising.every((s) => s.position[1] === 2.05)).toBe(true);
   const seamIndex = cruising.findIndex(
     (s, i) => i > 0 && s.cycle > cruising[i - 1].cycle,
   );

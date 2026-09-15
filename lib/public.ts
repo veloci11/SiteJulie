@@ -1,5 +1,6 @@
 import type { Artwork, Destination, SiteSettings } from "@/lib/data/types";
 export function priceLabel(a: Artwork) {
+  if (a.availability === "private_collection") return "Collection privée";
   return a.priceMinor === null
     ? "Prix sur demande"
     : new Intl.NumberFormat("fr-FR", {
@@ -9,6 +10,7 @@ export function priceLabel(a: Artwork) {
       }).format(a.priceMinor / 100);
 }
 export function availabilityLabel(a: Artwork) {
+  if (a.availability === "private_collection") return "Collection privée";
   return a.availability === "sold"
     ? "Vendue"
     : a.availability === "reserved"

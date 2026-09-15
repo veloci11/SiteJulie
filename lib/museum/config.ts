@@ -9,6 +9,9 @@ export interface ArtworkSlot {
   maxWidthM: number;
   maxHeightM: number;
   label: string;
+  /** Secondary hanging on an existing wall bay, measured from its GLB anchor. */
+  anchorIndex?: number;
+  anchorOffsetY?: number;
 }
 export const ROOM_DEPTH = 18;
 // Measured from ArtworkFrame: the backing is wider than the visible metal rim.
@@ -34,6 +37,7 @@ export function getRoomName(
     ).values(),
   ];
   if (names.length === 1) return names[0];
+  if (names.length > 1) return names.join(" · ");
   if (roomId === "room-1") return "La galerie";
   if (roomId === "room-2") return "Le salon";
   return `Salle ${roomId.replace("room-", "")}`;
@@ -59,7 +63,7 @@ export function getSlots(roomId = "room-1"): ArtworkSlot[] {
   ];
   if (roomId !== "room-1")
     specs[9] = [-3.5, 2.65, 8.86, Math.PI, "Entrée · gauche"];
-  return specs.map(([x, y, s, r, label], i) => ({
+  const slots: ArtworkSlot[] = specs.map(([x, y, s, r, label], i) => ({
     id: `${roomId}-slot-${String(i + 1).padStart(2, "0")}`,
     roomId,
     position: [x, y, s + z],
@@ -78,6 +82,24 @@ export function getSlots(roomId = "room-1"): ArtworkSlot[] {
     maxHeightM: 3,
     label,
   }));
+  if (roomId === "room-1") {
+    // Two small companion works beneath the left/right second wall bays.
+    // The upper work must be raised/reduced; normal overlap validation applies.
+    for (const [index, parentIndex] of [1, 5].entries()) {
+      const parent = slots[parentIndex];
+      slots.push({
+        ...parent,
+        id: `${roomId}-slot-${13 + index}`,
+        position: [parent.position[0], 1.45, parent.position[2]],
+        maxHeightM: 1.1,
+        maxWidthM: 1.6,
+        label: `${parentIndex === 1 ? "Mur gauche" : "Mur droit"} · petit format bas`,
+        anchorIndex: parentIndex + 1,
+        anchorOffsetY: -1.2,
+      });
+    }
+  }
+  return slots;
 }
 export function artworkSize(
   artwork: Pick<

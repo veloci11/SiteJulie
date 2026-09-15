@@ -1,0 +1,45 @@
+{
+  "source": "assets/museum/contemporary-experiments/hall/hall-contemporary.blend",
+  "asset": "public/museum/hall-daylight.glb",
+  "bytes": 1357784,
+  "rooflights": [
+    0
+  ],
+  "revealDepthMeters": 0.3,
+  "version": "vault-6-aligned-sunny-joints",
+  "roofWidthMeters": 5.2,
+  "roofLengthMeters": 14.4,
+  "vaultApexMeters": 7.35,
+  "anchorsPreserved": 18,
+  "archLinearTints": [
+    [
+      0.2915825358990124,
+      0.20851994516092778,
+      0.12283783824822338
+    ],
+    [
+      0.2804248552713335,
+      0.19984960612698996,
+      0.11991106612407879
+    ]
+  ],
+  "originalAssetsUnchanged": true,
+  "runtimeCost": "Opaque glazing. No new shadow maps, world, transmission or animated shader.",
+  "triangles": 76972,
+  "drawCalls": 29,
+  "status": "Geometry, glazed seals, exact mullion alignment, grout backing and original texture hashes validated",
+  "texture": {
+    "name": "Kloofendal 48d Partly Cloudy Pure Sky",
+    "width": 2048,
+    "height": 1024,
+    "shared": true,
+    "source": "https://polyhaven.com/a/kloofendal_48d_partly_cloudy_puresky",
+    "license": "CC0",
+    "authors": [
+      "Greg Zaal",
+      "Jarod Guest"
+    ]
+  },
+  "preserves": "Original floor/wall/furniture image pixels; runtime common floor stone tint only harmonizes the second room",
+  "correction": "Framed glass end panels aligned with roof bars. Grout underlay 1.5mm below old joints closes numerical cracks. Rejected broad lighting rebake absent."
+}

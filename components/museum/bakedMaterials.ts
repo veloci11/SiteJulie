@@ -45,6 +45,10 @@ function detailedSurface(
   details?: InteriorTextures,
 ) {
   const data = material.userData;
+  // The circulation floor is one stone specification throughout the museum.
+  // Room identity belongs to its walls and lighting, not an abrupt material seam.
+  const floorStone = /^SURFACE (hall|extension) stone 1$/.test(material.name);
+  const floorJoint = /^SURFACE (hall|extension) mortar 0$/.test(material.name);
   const maps = details?.[String(data.surfaceKind)];
   const period = Math.max(0.02, Number(data.surfacePeriodMeters) || 1);
   const scale = Number(data.lightmapRadianceScale) || 1;
@@ -58,9 +62,13 @@ function detailedSurface(
   }
   const result = new MeshStandardMaterial({
     name: material.name,
-    color: Array.isArray(data.surfaceColorLinear)
-      ? new Color().fromArray(data.surfaceColorLinear)
-      : new Color(1, 1, 1),
+    color: floorStone
+      ? new Color().fromArray([0.69, 0.65, 0.585])
+      : floorJoint
+        ? new Color().fromArray([0.47, 0.447, 0.39])
+        : Array.isArray(data.surfaceColorLinear)
+          ? new Color().fromArray(data.surfaceColorLinear)
+          : new Color(1, 1, 1),
     map: maps ? tiledMap(maps.base, period, true) : null,
     normalMap: maps ? tiledMap(maps.normal, period, false) : null,
     normalScale: new Vector2(normalStrength, normalStrength),
@@ -175,6 +183,48 @@ export function architecturalMaterial(
   material: Material,
   details?: InteriorTextures,
 ): Material {
+  if (
+    material instanceof MeshStandardMaterial &&
+    material.name === "Daylight vaulted diffuse glazing"
+  ) {
+    const sky = material.emissiveMap ?? material.map;
+    const result = new MeshBasicMaterial({
+      name: material.name,
+      map: sky,
+      side: material.side,
+      toneMapped: false,
+    });
+    // A distant photographic sky, sampled by viewing direction, remains at
+    // infinity when walking beneath the roof instead of sliding like wallpaper.
+    result.onBeforeCompile = (shader) => {
+      shader.vertexShader = shader.vertexShader
+        .replace(
+          "#include <common>",
+          "#include <common>\nvarying vec3 skyWorldPosition;",
+        )
+        .replace(
+          "#include <begin_vertex>",
+          "#include <begin_vertex>\nskyWorldPosition=(modelMatrix*vec4(transformed,1.)).xyz;",
+        );
+      shader.fragmentShader = shader.fragmentShader
+        .replace(
+          "#include <common>",
+          "#include <common>\nvarying vec3 skyWorldPosition;",
+        )
+        .replace(
+          "#include <map_fragment>",
+          `
+          vec3 skyDirection = normalize(skyWorldPosition-cameraPosition);
+          vec2 skyUv = vec2(fract(atan(skyDirection.z, skyDirection.x)/(2.*PI)+.5), .5-asin(clamp(skyDirection.y,-1.,1.))/PI);
+          vec3 skyRadiance = texture2D(map, skyUv).rgb;
+          // Slight glazing veil, with cloud contrast retained.
+          diffuseColor.rgb *= mix(skyRadiance * 1.65, vec3(.73,.81,.86), .055);
+        `,
+        );
+    };
+    result.customProgramCacheKey = () => "vault-photographic-distant-sky-v1";
+    return result;
+  }
   if (
     material instanceof MeshStandardMaterial &&
     material.name.startsWith("SURFACE ")

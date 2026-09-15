@@ -2,6 +2,29 @@ import type { AdminArtwork, Artwork } from "./types";
 
 export const collectionKey = (name: string) =>
   name.trim().toLocaleLowerCase("fr");
+/** Shared by the placement editor and the server: two complete series per room. */
+export function collectionFitsRoom(
+  artwork: Pick<AdminArtwork, "id" | "collection">,
+  all: readonly AdminArtwork[],
+  roomId: string,
+) {
+  const peers = all.filter(
+    (a) => a.id !== artwork.id && a.publication === "published",
+  );
+  const name = collectionKey(artwork.collection);
+  const existingRoom = name
+    ? peers.find((a) => collectionKey(a.collection) === name)?.roomId
+    : undefined;
+  return (
+    (!existingRoom || existingRoom === roomId) &&
+    new Set([
+      ...peers
+        .filter((a) => a.roomId === roomId)
+        .map((a) => collectionKey(a.collection)),
+      name,
+    ]).size <= 2
+  );
+}
 type Ordered = Pick<Artwork, "id" | "collection" | "roomId" | "order">;
 /** Room order keeps public collections together even when local positions restart. */
 export function groupCollections<T extends Ordered>(

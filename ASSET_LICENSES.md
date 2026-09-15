@@ -1,5 +1,9 @@
 # Provenance des ressources
 
+## Ciel photographique de la verrière
+
+[Kloofendal 48d Partly Cloudy (Pure Sky)](https://polyhaven.com/a/kloofendal_48d_partly_cloudy_puresky), Greg Zaal (photographie), Jarod Guest (version ciel seul), Poly Haven, CC0. Source JPG tonemappée obtenue via l’API officielle, conservée dans `assets/museum/daylight/sky/`. Dérivé 2048 × 1024 intégré au GLB, servi localement et partagé par les vitrages. Le ciel suit la direction du regard ; il n’est pas utilisé pour modifier l’éclairage ou les couleurs des œuvres.
+
 ## Architecture et mobilier
 
 - Fichiers : `public/museum/hall.glb`, `public/museum/extension.glb`, `public/museum/outside.glb`, `public/museum/manifest.json`.

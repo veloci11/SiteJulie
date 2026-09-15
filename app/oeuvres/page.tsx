@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { getPublicData } from "@/lib/data/repository";
 import { priceLabel, availabilityLabel } from "@/lib/public";
-import { getRoomName } from "@/lib/museum/config";
+import { groupCollections } from "@/lib/data/collections";
 import PublicHeader from "@/components/public/PublicHeader";
 import PublicFooter from "@/components/public/PublicFooter";
 export const dynamic = "force-dynamic";
@@ -29,53 +29,59 @@ export default async function Catalogue() {
             <br />À votre rythme, en toute simplicité.
           </p>
         </div>
-        {data.rooms.map((roomId) => {
-          const artworks = data.artworks.filter((a) => a.roomId === roomId);
-          if (!artworks.length) return null;
-          return (
-            <section
-              className="catalogue-collection"
-              key={roomId}
-              aria-label={getRoomName(roomId, data.artworks)}
-            >
-              <div className="catalogue-collection-heading">
-                <h2>{getRoomName(roomId, data.artworks)}</h2>
-                <span>{artworks.length} œuvres</span>
-              </div>
-              <div className="catalogue-grid">
-                {artworks.map((a, i) => (
-                  <Link
-                    key={a.id}
-                    href={`/oeuvres/${a.slug}`}
-                    className="catalogue-card"
-                    data-availability={a.availability}
-                  >
-                    <div className="catalogue-image">
-                      <img
-                        src={a.image}
-                        alt={a.alt}
-                        width={a.imageWidth}
-                        height={a.imageHeight}
-                        loading={i < 3 ? "eager" : "lazy"}
-                      />
-                      <span className="catalogue-index">
-                        {String(i + 1).padStart(2, "0")}
-                      </span>
-                      <span className="card-arrow">
-                        <ArrowUpRight size={23} />
-                      </span>
-                    </div>
-                    <div className="catalogue-caption">
-                      <h2>{a.title}</h2>
-                      <p>{priceLabel(a)}</p>
-                    </div>
-                    <small>{availabilityLabel(a)}</small>
-                  </Link>
-                ))}
-              </div>
-            </section>
-          );
-        })}
+        {groupCollections(data.artworks, data.rooms).map(
+          ({ name, artworks }) => {
+            if (!artworks.length) return null;
+            return (
+              <section
+                className="catalogue-collection"
+                key={name}
+                aria-label={name}
+              >
+                <div className="catalogue-collection-heading">
+                  <h2>{name}</h2>
+                  <span>{artworks.length} œuvres</span>
+                </div>
+                {data.settings.collectionDescriptions?.[name] && (
+                  <p className="collection-copy">
+                    {data.settings.collectionDescriptions[name]}
+                  </p>
+                )}
+                <div className="catalogue-grid">
+                  {artworks.map((a, i) => (
+                    <Link
+                      key={a.id}
+                      href={`/oeuvres/${a.slug}`}
+                      className="catalogue-card"
+                      data-availability={a.availability}
+                    >
+                      <div className="catalogue-image">
+                        <img
+                          src={a.image}
+                          alt={a.alt}
+                          width={a.imageWidth}
+                          height={a.imageHeight}
+                          loading={i < 3 ? "eager" : "lazy"}
+                        />
+                        <span className="catalogue-index">
+                          {String(i + 1).padStart(2, "0")}
+                        </span>
+                        <span className="card-arrow">
+                          <ArrowUpRight size={23} />
+                        </span>
+                      </div>
+                      <div className="catalogue-caption">
+                        <h2>{a.title}</h2>
+                        <p>{priceLabel(a)}</p>
+                      </div>
+                      <small>{availabilityLabel(a)}</small>
+                    </Link>
+                  ))}
+                </div>
+              </section>
+            );
+          },
+        )}
       </main>
       <PublicFooter demo={data.mode === "demo"} />
     </>

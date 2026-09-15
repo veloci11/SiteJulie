@@ -6,6 +6,7 @@ import { arrivalFingerprint } from "./arrival";
 
 export const arrivalViews = ["wide", "portrait"] as const;
 export type ArrivalView = (typeof arrivalViews)[number];
+const bundledArrivalRoot = () => path.join(process.cwd(), "content", "arrival");
 export function arrivalRooms(data: PublicData) {
   return data.rooms.filter((room) => /^room-[1-4]$/.test(room));
 }
@@ -18,14 +19,19 @@ async function capturedImage(
   room: string,
   view: ArrivalView,
   local: string,
+  bundled = bundledArrivalRoot(),
 ) {
-  if (data.mode !== "demo" || !arrivalRooms(data).includes(room)) return null;
+  if (!arrivalRooms(data).includes(room)) return null;
   const fingerprint = arrivalFingerprint(data);
   // The previous manually generated cache remains readable when its exact
   // public hanging matches. Every automatic batch lives in an immutable folder.
   for (const folder of [
-    arrivalFolder(local, fingerprint),
-    path.join(local, "arrival"),
+    ...(data.mode === "demo"
+      ? [arrivalFolder(local, fingerprint), path.join(local, "arrival")]
+      : []),
+    // Server-only release captures also work on Vercel. They are never public
+    // static files: every request rechecks the current published hanging.
+    bundled,
   ]) {
     try {
       const manifest = JSON.parse(
@@ -50,18 +56,19 @@ async function capturedImage(
   }
   return null;
 }
-export async function arrivalReady(data: PublicData, local: string) {
+export async function arrivalReady(
+  data: PublicData,
+  local: string,
+  bundled = bundledArrivalRoot(),
+) {
   const rooms = arrivalRooms(data);
-  if (
-    data.mode !== "demo" ||
-    !rooms.length ||
-    rooms.length !== data.rooms.length
-  )
-    return false;
+  if (!rooms.length || rooms.length !== data.rooms.length) return false;
   return (
     await Promise.all(
       rooms.flatMap((room) =>
-        arrivalViews.map((view) => capturedImage(data, room, view, local)),
+        arrivalViews.map((view) =>
+          capturedImage(data, room, view, local, bundled),
+        ),
       ),
     )
   ).every(Boolean);
@@ -107,8 +114,9 @@ export async function arrivalImage(
   view: ArrivalView,
   local: string,
   publicRoot: string,
+  bundled = bundledArrivalRoot(),
 ) {
-  const captured = await capturedImage(data, room, view, local);
+  const captured = await capturedImage(data, room, view, local, bundled);
   // Empty architecture is the only permissible fallback after any public change.
   return captured ?? emptyArrival(room, view, publicRoot);
 }

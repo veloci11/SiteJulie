@@ -34,6 +34,7 @@ for (const artwork of source.artworks) {
     const buffer = await readFile(file);
     await put(`${base}/${variant}.webp`, buffer, {
       access: "private",
+      token: process.env.BLOB_READ_WRITE_TOKEN,
       contentType: "image/webp",
       addRandomSuffix: false,
       allowOverwrite: true,
@@ -64,6 +65,7 @@ await put(
   }),
   {
     access: "private",
+    token: process.env.BLOB_READ_WRITE_TOKEN,
     contentType: "application/json",
     addRandomSuffix: false,
     allowOverwrite: true,

@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState, type PointerEvent } from "react";
+import { collectionFitsRoom } from "@/lib/data/collections";
 import { resolvePlacement } from "@/lib/validation/artwork";
 import type { AdminArtwork } from "@/lib/data/types";
 import {
@@ -110,15 +111,8 @@ export default function PlacementEditor({
   const peers = artworks.filter(
     (a) => a.id !== artwork.id && a.publication === "published",
   );
-  const key = (value: string) => value.trim().toLocaleLowerCase("fr");
-  const collectionRoom = artwork.collection.trim()
-    ? peers.find((a) => key(a.collection) === key(artwork.collection))?.roomId
-    : undefined;
   const allowedRoom = (room: string) =>
-    (!collectionRoom || collectionRoom === room) &&
-    peers
-      .filter((a) => a.roomId === room)
-      .every((a) => key(a.collection) === key(artwork.collection));
+    collectionFitsRoom(artwork, artworks, room);
   const occupied = (slot: ArtworkSlot) =>
     peers.find((a) => a.slotId === slot.id);
   const shown = slots.filter((s) => wallKey(s) === wall);

@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { ArrowUpRight, Copy, Check, Mail } from "lucide-react";
+import { ArrowUpRight, Copy, Check, Mail, Instagram } from "lucide-react";
 import type { Artwork, SiteSettings } from "@/lib/data/types";
 import { contactHref } from "@/lib/public";
 // Only publish a web origin, never credentials, query strings or a configured path.
@@ -93,6 +93,17 @@ export default function ContactActions({
             démonstration.
           </small>
         </div>
+      )}
+      {settings.instagramUrl && (
+        <a
+          className="text-link"
+          href={settings.instagramUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <Instagram size={17} /> Retrouvez Julie sur Instagram{" "}
+          <ArrowUpRight size={15} />
+        </a>
       )}
     </div>
   );
