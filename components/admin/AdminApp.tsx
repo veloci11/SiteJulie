@@ -26,6 +26,8 @@ import { ArtworkImage, PriceInput } from "./EditorFields";
 import { notifyCatalogueChanged } from "@/lib/museum/catalogueEvents";
 import { getSlots } from "@/lib/museum/config";
 import { getZones, normalizeZoneArtwork } from "@/lib/museum/zones";
+import { showroomReference } from "@/lib/museum/showroomSizing";
+import { safeDisplayScale } from "@/lib/validation/placement";
 import { slotCode, WALL_GUIDES } from "@/lib/admin/placement-guide";
 import { wallKey } from "@/lib/validation/placement";
 import RoomOverview from "./RoomOverview";
@@ -233,7 +235,7 @@ export default function AdminApp({
     ? groupCollections(data.artworks, data.rooms, data.settings.collectionRooms)
     : [];
   const roomCapacity = (room: string) => {
-    const slots = getZones(room);
+    const slots = getZones(room, data?.rooms);
     const occupied = new Set(
       data?.artworks
         .filter((a) => a.publication === "published")
@@ -285,7 +287,27 @@ export default function AdminApp({
     setMessage("");
   }
   function put<K extends keyof AdminArtwork>(key: K, value: AdminArtwork[K]) {
-    setEditing((a) => (a ? { ...a, [key]: value } : null));
+    setEditing((a) => {
+      if (!a) return null;
+      const next = { ...a, [key]: value };
+      if (
+        ["widthCm", "heightCm"].includes(key) &&
+        a[key] !== value &&
+        (next.widthCm || next.heightCm) &&
+        next.imageWidth > 0
+      ) {
+        const slot =
+          getSlots(next.roomId).find((s) => s.id === next.slotId) ??
+          getZones(next.roomId, data?.rooms)[0];
+        next.displayScale = safeDisplayScale(
+          next,
+          slot,
+          showroomReference(next, slot).scale,
+          next.slotId ? (data?.artworks ?? []) : [],
+        );
+      }
+      return next;
+    });
   }
   function remember(
     saved: AdminArtwork,
@@ -313,6 +335,7 @@ export default function AdminApp({
       return;
     }
     const publication = a.publication;
+    const initializeAfterImage = !a.image && !!(a.widthCm || a.heightCm);
     let saved: AdminArtwork;
     setProgress("Enregistrement de la fiche…");
     // A new work needs a private draft before its first media upload.
@@ -323,6 +346,7 @@ export default function AdminApp({
     remember(saved, publication);
     setFormTouched(false);
     if (pendingImage) {
+      let imagePrepared = false;
       try {
         setProgress("Envoi de l’image…");
         const token = await api<{ id: string; url: string }>(
@@ -344,9 +368,28 @@ export default function AdminApp({
         saved = await api<AdminArtwork>("/api/admin/process", { id: token.id });
         remember(saved, publication);
         setPendingImage(null);
+        imagePrepared = true;
+        if (initializeAfterImage) {
+          const slot =
+            getSlots(saved.roomId).find((s) => s.id === saved.slotId) ??
+            getZones(saved.roomId, data?.rooms)[0];
+          saved = await api<AdminArtwork>("/api/admin/artworks", {
+            ...saved,
+            displayScale: safeDisplayScale(
+              saved,
+              slot,
+              showroomReference(saved, slot).scale,
+              saved.slotId ? (data?.artworks ?? []) : [],
+            ),
+          });
+        }
+        remember(saved, publication);
+        setPendingImage(null);
       } catch (error) {
         throw new Error(
-          `La fiche est enregistrée${saved.publication === "draft" ? " en brouillon" : ""}, mais la nouvelle image n’a pas été enregistrée. ${error instanceof Error ? error.message : "Réessayez."}`,
+          imagePrepared
+            ? `L’image est enregistrée. La taille de départ n’a pas pu être appliquée ; utilisez « Revenir à 100 % » dans l’accrochage puis enregistrez. ${error instanceof Error ? error.message : ""}`
+            : `La fiche est enregistrée${saved.publication === "draft" ? " en brouillon" : ""}, mais la nouvelle image n’a pas été enregistrée. ${error instanceof Error ? error.message : "Réessayez."}`,
         );
       }
     }
@@ -818,10 +861,11 @@ export default function AdminApp({
                         </label>
                       </div>
                       <small>
-                        Dimensions affichées dans la description. Elles ne
-                        changent pas la taille dans le showroom, réglable dans «
-                        Collection & accrochage ». Laissez vides les
-                        informations inconnues.
+                        En centimètres. Modifier ces dimensions définit un
+                        nouveau 100 % et remet le tableau à cette taille, dans
+                        la place disponible. Vous pouvez ensuite le
+                        redimensionner dans « Collection & accrochage ». Laissez
+                        vides les informations inconnues.
                       </small>
                     </section>
                     <details
@@ -1681,7 +1725,10 @@ function CollectionCreator({
           onSelect={setRoom}
           disabled={busy}
         />
-        <p className="admin-help">Chaque zone peut recevoir plusieurs tableaux. L’ajout dépend de l’espace libre et de leur taille.</p>
+        <p className="admin-help">
+          Chaque zone peut recevoir plusieurs tableaux. L’ajout dépend de
+          l’espace libre et de leur taille.
+        </p>
         {rooms.length < 4 ? (
           <button
             type="button"

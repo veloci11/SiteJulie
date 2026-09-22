@@ -15,6 +15,7 @@ import {
 } from "@/lib/auth/server";
 import { mutateLocal, readLocal } from "./local";
 import { mutateBlob, readBlob } from "./blob";
+import { getSlots } from "@/lib/museum/config";
 import {
   artworkSchema,
   publicArtwork,
@@ -211,6 +212,23 @@ export async function addRoom() {
     return mutate((data) => {
       if (data.rooms.length >= 4)
         throw new ServiceError("Cette version accepte quatre salles.");
+      const terminalRoom = data.rooms.at(-1)!;
+      const centralZone = getSlots(terminalRoom).find(
+        (slot) => slot.terminalOnly,
+      );
+      if (
+        centralZone &&
+        data.artworks.some(
+          (a) =>
+            a.publication === "published" &&
+            a.roomId === terminalRoom &&
+            a.slotId === centralZone.id,
+        )
+      )
+        throw new ServiceError(
+          "Déplacez d’abord les tableaux de D centre dans la salle 2 : l’ajout d’une salle ouvre un passage à cet endroit.",
+          409,
+        );
       const id = `room-${data.rooms.length + 1}`;
       data.rooms.push(id);
       return id;

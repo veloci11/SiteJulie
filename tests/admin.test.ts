@@ -93,6 +93,28 @@ afterEach(async () => {
   vi.unstubAllEnvs();
 });
 describe("Public projection", () => {
+  it("preserves a painting on D centre instead of opening a doorway behind it", async () => {
+    await writeFile(
+      path.join(folder, "seed.json"),
+      JSON.stringify({
+        artworks: [{ ...fixture, roomId: "room-2", slotId: "room-2-slot-13" }],
+        settings: blankSettings,
+        rooms: ["room-1", "room-2"],
+      }),
+    );
+    await enterDemo();
+    await expect(addRoom()).rejects.toThrow("D centre");
+    const data = await getPublicData();
+    expect(data.rooms).toEqual(["room-1", "room-2"]);
+    expect(data.artworks[0].slotId).toBe("room-2-slot-13");
+    expect(() =>
+      resolvePlacement(
+        { ...fixture, roomId: "room-2", slotId: "room-2-slot-13" },
+        [],
+        ["room-1", "room-2", "room-3"],
+      ),
+    ).toThrow();
+  });
   it("omits hidden price, private keys and non-published works", async () => {
     const data = await getPublicData();
     expect(data.artworks).toHaveLength(1);

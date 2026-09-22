@@ -1,6 +1,7 @@
 import { CatmullRomCurve3, PerspectiveCamera, Vector3 } from "three";
 import type { Artwork, Destination, PublicData } from "@/lib/data/types";
 import { roomOffset, slotForArtwork, type Vec3 } from "./config";
+import { hangingGroups } from "./hangingGroups";
 import {
   motionLookTarget,
   obstaclesForRooms,
@@ -155,22 +156,20 @@ function galleryHeading(walk: AmbientWalk, metres: number) {
  * Only the gaze is smoothed; walking speed and the collision-checked path stay fixed.
  */
 function artworkGaze(walk: AmbientWalk, artworks: Artwork[]) {
-  const choices = artworks
-    .filter((a) => a.roomId === walk.roomId)
-    .flatMap((a) => {
-      const slot = slotForArtwork(a);
-      if (!slot) return [];
-      const wallAngle = Math.atan2(-slot.wallNormal[0], -slot.wallNormal[2]);
+  const choices = hangingGroups(artworks)
+    .filter((group) => group.roomId === walk.roomId)
+    .map((group) => {
+      const wallAngle = Math.atan2(-group.normal[0], -group.normal[2]);
       const radialAngle = Math.atan2(
-        slot.position[0],
-        slot.position[2] - roomOffset(walk.roomId) + 1.6,
+        group.position[0],
+        group.position[2] - roomOffset(walk.roomId) + 1.6,
       );
       // Anticipate each wall by a quarter loop; lateral hanging changes encounter
       // time a little, and multiple works on a wall remain individually addressable.
       const phase = wrap(
         (wallAngle + angleDelta(wallAngle, radialAngle) * 0.2) / TAU - 0.25,
       );
-      return [{ id: a.id, phase, position: slot.position }];
+      return { id: group.id, phase, position: group.position };
     })
     .sort((a, b) => a.phase - b.phase || a.id.localeCompare(b.id));
   if (!choices.length) return undefined;

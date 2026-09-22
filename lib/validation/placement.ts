@@ -6,7 +6,7 @@ import {
   getSlots,
   type ArtworkSlot,
 } from "@/lib/museum/config";
-import { zoneBounds, normalizeZoneArtwork } from "@/lib/museum/zones";
+import { zoneBounds, normalizeZoneArtwork, getZones } from "@/lib/museum/zones";
 
 /** Same envelope and frame dimensions in the editor, server validation and renderer. */
 export function placementLimits(artwork: Artwork, slot: ArtworkSlot) {
@@ -214,7 +214,9 @@ export function findZonePlacement(
   shrink = false,
 ) {
   const source = normalizeZoneArtwork(a);
-  const oldSlot = getSlots(source.roomId).find((s) => s.id === source.slotId);
+  const oldSlot =
+    getSlots(source.roomId).find((s) => s.id === source.slotId) ??
+    getZones(source.roomId)[0];
   const base = artworkSize({ ...source, displayScale: 1 }, slot);
   const initialScale = Math.min(
     1,

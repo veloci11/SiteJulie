@@ -4,7 +4,7 @@ Le plan de la salle reste toujours ouvert. Les murs gardent les repères **A · 
 
 Les zones en pointillés restent toutes visibles. Chaque zone accueille plusieurs tableaux de tailles différentes. A2 est une seule zone : les anciens emplacements A2 et A2 bas y coexistent désormais. Le contour bleu et la zone cliquable épousent le cadre réel du tableau sélectionné.
 
-Glisser un tableau règle sa position ; la poignée ↘ règle sa taille. Les champs numériques restent disponibles. Les mouvements et agrandissements s’arrêtent avant les bords ou les autres cadres, avec 4 cm de marge. Les dimensions réelles affichées dans la description restent indépendantes des dimensions du showroom.
+Glisser un tableau règle sa position ; la poignée ↘ règle sa taille. Les champs numériques restent disponibles. Les mouvements et agrandissements s’arrêtent avant les bords ou les autres cadres, avec 4 cm de marge. La saisie ou modification des dimensions réelles en cm définit le nouveau 100 % ; les réglages manuels suivants restent conservés. Voir [DIMENSIONS_CAMERA.md](DIMENSIONS_CAMERA.md).
 
 Choisir une zone pour une nouvelle œuvre adapte uniquement cette œuvre à l’espace disponible. Les œuvres présentes ne bougent pas et ne sont pas redimensionnées. Si le petit côté devrait passer sous 25 cm, l’ajout est refusé. Le mode salle conserve alors le tableau dans la réserve. Voir [ADMIN_ZONES.md](ADMIN_ZONES.md) pour les détails et les contrôles actuels.
 

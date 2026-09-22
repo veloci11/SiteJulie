@@ -350,11 +350,13 @@ describe("Two intimate rooms and mobile navigation", () => {
       >;
       for (const [i, slot] of getSlots(roomId).entries()) {
         const anchor =
-          anchors[`slot_${String(slot.anchorIndex ?? i + 1).padStart(2, "0")}`];
+          anchors[
+            `slot_${String(slot.anchorIndex ?? slot.geometryAnchorIndex ?? i + 1).padStart(2, "0")}`
+          ];
         expect(anchor).toBeDefined();
         expect(
           Math.hypot(
-            anchor[0] - slot.position[0],
+            anchor[0] + (slot.geometryAnchorOffsetX ?? 0) - slot.position[0],
             anchor[1] + (slot.anchorOffsetY ?? 0) - slot.position[1],
             anchor[2] + roomOffset(roomId) - slot.position[2],
           ),

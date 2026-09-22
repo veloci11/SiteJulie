@@ -307,7 +307,7 @@ export default function RoomLayoutEditor({
         )}
       </section>
     );
-  const slots = getZones(roomId);
+  const slots = getZones(roomId, rooms);
   const artworks = layoutArtworks(plan, session.artworks);
   const selected = artworks.find((a) => a.id === selectedId);
   const selectedSlot = slots.find((slot) => slot.id === selected?.slotId);

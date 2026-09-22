@@ -13,6 +13,7 @@ export const WALL_GUIDES = [
 export function slotCode(slot: ArtworkSlot) {
   const number = Number(slot.id.split("-slot-")[1]);
   const wall = WALL_GUIDES.find((entry) => entry.id === wallKey(slot))!;
+  if (slot.terminalOnly) return `${wall.code} centre`;
   if (slot.anchorIndex) return `${wall.code}2`;
   if (number <= 8) return `${wall.code}${((number - 1) % 4) + 1}`;
   if (wall.id === 0) return `${wall.code}${number - 8}`;

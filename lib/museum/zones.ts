@@ -5,8 +5,12 @@ import { artworkSize, getSlots, type ArtworkSlot } from "./config";
 export function zoneSlot(slot: ArtworkSlot) {
   return slot.anchorIndex ? getSlots(slot.roomId)[slot.anchorIndex - 1] : slot;
 }
-export function getZones(roomId: string) {
-  return getSlots(roomId).filter((slot) => !slot.anchorIndex);
+export function getZones(roomId: string, rooms?: readonly string[]) {
+  return getSlots(roomId).filter(
+    (slot) =>
+      !slot.anchorIndex &&
+      (!slot.terminalOnly || !rooms || rooms.at(-1) === roomId),
+  );
 }
 export function zoneBounds(slot: ArtworkSlot) {
   const zone = zoneSlot(slot);

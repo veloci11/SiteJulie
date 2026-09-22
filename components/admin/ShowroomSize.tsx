@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type PointerEvent } from "react";
 import type { AdminArtwork } from "@/lib/data/types";
 import { zoneBounds } from "@/lib/museum/zones";
 import { slotCode } from "@/lib/admin/placement-guide";
+import { showroomReference } from "@/lib/museum/showroomSizing";
 import {
   artworkSize,
   FRAME_OUTSET,
@@ -181,7 +182,9 @@ export function ResizeHandle({
             : event.key === "End"
               ? 1
               : (artwork.displayScale ?? 1) +
-                direction * (event.shiftKey ? 0.1 : 0.01);
+                direction *
+                  (event.shiftKey ? 0.1 : 0.01) *
+                  showroomReference(artwork, slot).scale;
         onChange(safeDisplayScale(artwork, slot, scale, artworks));
       }}
       style={{
@@ -279,27 +282,41 @@ export default function ShowroomSize({
   const base = artworkSize({ ...artwork, displayScale: 1 }, slot);
   const size = artworkSize(artwork, slot);
   const maximum = safeDisplayScale(artwork, slot, 1, artworks);
+  const reference = showroomReference(artwork, slot);
+  const percent = (scale: number) =>
+    Math.round((scale / reference.scale) * 1000) / 10;
   const update = (scale: number) =>
     onChange(safeDisplayScale(artwork, slot, scale, artworks));
   return (
     <div className="admin-showroom-size">
       <label>
-        Taille dans le showroom ·{" "}
-        {Math.round((artwork.displayScale ?? 1) * 100)} %
+        Taille dans le showroom · {percent(artwork.displayScale ?? 1)} %
         <input
           aria-label="Taille dans le showroom"
           type="range"
-          min={MIN_DISPLAY_SCALE * 100}
-          max="100"
-          step="1"
-          value={Math.round((artwork.displayScale ?? 1) * 100)}
+          min={percent(MIN_DISPLAY_SCALE)}
+          max={Math.max(percent(MIN_DISPLAY_SCALE), percent(maximum))}
+          step="0.1"
+          value={percent(artwork.displayScale ?? 1)}
           onPointerDown={onStart}
           onPointerUp={onEnd}
           onPointerCancel={onEnd}
           onBlur={onEnd}
-          onChange={(event) => update(Number(event.target.value) / 100)}
+          onChange={(event) =>
+            update((Number(event.target.value) / 100) * reference.scale)
+          }
         />
       </label>
+      <p className="admin-help" data-showroom-reference>
+        100 % = {artwork.widthCm ?? Math.round(reference.width * 1000) / 10} ×{" "}
+        {artwork.heightCm ?? Math.round(reference.height * 1000) / 10} cm
+        {reference.real
+          ? " · référence des dimensions réelles"
+          : " · taille de référence de la zone, dimensions réelles non renseignées"}
+        .
+        {reference.ratioMismatch &&
+          " La photo ne présente pas le même ratio : elle est ajustée dans ces dimensions sans être déformée."}
+      </p>
       <div className="admin-two">
         <SizeInput
           label="Largeur dans le showroom (cm)"
@@ -325,15 +342,9 @@ export default function ShowroomSize({
         <button
           type="button"
           className="admin-text-button"
-          onClick={() =>
-            update(
-              artwork.widthCm
-                ? artwork.widthCm / 100 / base.width
-                : artwork.heightCm! / 100 / base.height,
-            )
-          }
+          onClick={() => update(reference.scale)}
         >
-          Partir des dimensions réelles
+          Revenir à 100 % · dimensions réelles
         </button>
       )}
     </div>

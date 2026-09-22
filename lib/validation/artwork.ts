@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { collectionFitsRoom } from "@/lib/data/collections";
 import type { AdminArtwork, Artwork, SiteSettings } from "@/lib/data/types";
-import { getSlots, MIN_DISPLAY_SCALE } from "@/lib/museum/config";
+import { artworkSize, getSlots, MIN_DISPLAY_SCALE } from "@/lib/museum/config";
 import { placementIssue, findZonePlacement } from "./placement";
 import { getZones, normalizeZoneArtwork } from "@/lib/museum/zones";
 export class ServiceError extends Error {
@@ -148,13 +148,26 @@ export function resolvePlacement(
     );
   const roomCompatible = (roomId: string) =>
     collectionFitsRoom(a, all, roomId, collectionRooms);
-  const slots = rooms.flatMap(getZones);
+  const slots = rooms.flatMap((room) => getZones(room, rooms));
   if (!a.slotId) {
+    const referenceSlot = getZones(a.roomId, rooms)[0];
+    const requestedHeight = artworkSize(a, referenceSlot).height;
+    let best: AdminArtwork | undefined;
+    let bestHeight = 0;
     for (const slot of slots) {
       if (!roomCompatible(slot.roomId)) continue;
       const fitted = findZonePlacement(a, slot, all, true);
-      if (fitted) return fitted;
+      if (!fitted) continue;
+      const height = artworkSize(fitted, slot).height;
+      // Prefer the requested size anywhere in this collection's room before
+      // reducing a new work to squeeze it into an earlier occupied zone.
+      if (height >= requestedHeight - 0.000001) return fitted;
+      if (height > bestHeight) {
+        best = fitted;
+        bestHeight = height;
+      }
     }
+    if (best) return best;
     throw new ServiceError(
       "Aucune zone ne permet d’ajouter ce tableau à une taille lisible. Réorganisez une zone ou choisissez une autre salle.",
       409,

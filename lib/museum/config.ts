@@ -12,6 +12,10 @@ export interface ArtworkSlot {
   /** Secondary hanging on an existing wall bay, measured from its GLB anchor. */
   anchorIndex?: number;
   anchorOffsetY?: number;
+  /** Independent zone derived from an existing GLB anchor. */
+  geometryAnchorIndex?: number;
+  geometryAnchorOffsetX?: number;
+  terminalOnly?: boolean;
 }
 export const ROOM_DEPTH = 18;
 // Measured from ArtworkFrame: the backing is wider than the visible metal rim.
@@ -99,6 +103,18 @@ export function getSlots(roomId = "room-1"): ArtworkSlot[] {
         anchorOffsetY: -1.2,
       });
     }
+  }
+  if (roomId === "room-2") {
+    slots.push({
+      ...slots[11],
+      id: `${roomId}-slot-13`,
+      position: [0, 2.65, 8.86 + z],
+      maxWidthM: 2.47 - FRAME_OUTSET,
+      label: "Mur derrière · centre",
+      geometryAnchorIndex: 12,
+      geometryAnchorOffsetX: -3.5,
+      terminalOnly: true,
+    });
   }
   return slots;
 }

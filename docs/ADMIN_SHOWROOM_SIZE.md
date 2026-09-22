@@ -4,10 +4,10 @@ Les grandes bandes marron de l’aperçu provenaient de sa hauteur minimale de 1
 
 ## Réglages
 
-- **Largeur réelle / Hauteur réelle** : informations de la description, sans effet automatique sur la géométrie.
-- **Taille dans le showroom** : taille indépendante, de 1 à 100 % du maximum de la zone, avec largeur/hauteur liées au ratio de l’image.
+- **Largeur réelle / Hauteur réelle** : dimensions en cm. Leur saisie ou modification définit un nouveau 100 % et remet le tableau à cette taille, dans la place disponible.
+- **Taille dans le showroom** : pourcentage relatif aux dimensions réelles, agrandissable au-delà de 100 % si la zone le permet, avec largeur/hauteur liées au ratio de l’image. Sans dimensions réelles, la référence reste le maximum de la zone.
 - **Poignée ↘** sur le tableau sélectionné : redimensionnement à la souris ou au toucher. Flèches au clavier, Maj pour un pas plus grand, Début/Fin pour les bornes.
-- **Partir des dimensions réelles** : reprise explicite de la largeur déclarée (ou de la hauteur si seule celle-ci est renseignée), ramenée aux limites disponibles.
+- **Revenir à 100 % · dimensions réelles** : remise à la référence déclarée, ramenée aux limites disponibles. Si le ratio de la photo diffère, elle tient dans les deux dimensions sans déformation ; l’interface explique cet ajustement.
 
 Les changements de taille conservent le centre. L’agrandissement s’arrête à la limite de la place ou avant un cadre voisin. Les champs acceptent une virgule décimale ; les valeurs numériques trop grandes sont ramenées à la limite à la sortie du champ, et une saisie vide ou invalide bloque l’enregistrement. Le serveur revalide les limites. Dans la réorganisation d’une salle, un geste complet correspond à une seule annulation. Le plan vu du dessus reste toujours déplié, sans commande de fermeture.
 
@@ -16,6 +16,8 @@ Les changements de taille conservent le centre. L’agrandissement s’arrête �
 Le champ existant `displayScale` porte ce réglage ; les dimensions de la description, images et autres métadonnées restent indépendantes. Les 26 œuvres du catalogue local avaient toutes des dimensions réelles non renseignées lors du contrôle : leur taille de showroom existante est conservée. Un autre catalogue qui utilisait déjà ces dimensions pour dimensionner les tableaux doit vérifier ses accrochages lors de cette évolution. L’empreinte des anciennes captures d’arrivée est invalidée pour ces œuvres.
 
 La migration `supabase/migrations/202609220001_independent_showroom_size.sql` prépare l’alignement des fonctions géométriques SQL. Elle n’a pas été exécutée ni testée sur un service distant. Le mode de réorganisation collective reste réservé aux adapters local et Blob.
+
+La validation actuelle des pourcentages, du cadrage et de D centre est décrite dans [DIMENSIONS_CAMERA.md](DIMENSIONS_CAMERA.md). La réouverture, la sauvegarde et les modifications des autres champs ne remettent pas la taille à zéro.
 
 ## Vérification initiale du 22 septembre 2026 UTC
 

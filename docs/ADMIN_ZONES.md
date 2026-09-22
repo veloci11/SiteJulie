@@ -1,6 +1,6 @@
 # Plusieurs tableaux dans une zone
 
-L’administration utilise 12 zones par salle. **A2 est une seule zone** : l’ancien « A2 bas » appartient à A2, comme « B2 bas » à B2. La conversion conserve exactement la taille de l’image et sa position dans la galerie. Elle accepte aussi les anciens brouillons et ne réécrit pas le catalogue à sa lecture.
+L’administration utilise 12 zones, plus D centre dans la salle 2 tant que celle-ci est terminale. Cette nouvelle zone occupe le vrai mur fermé entre D1 et D2 ; si des œuvres y sont publiées, elles doivent être déplacées avant d’ouvrir le passage vers une salle 3. **A2 est une seule zone** : l’ancien « A2 bas » appartient à A2, comme « B2 bas » à B2. La conversion conserve exactement la taille de l’image et sa position dans la galerie. Elle accepte aussi les anciens brouillons et ne réécrit pas le catalogue à sa lecture.
 
 ## Placement
 
@@ -8,7 +8,7 @@ L’administration utilise 12 zones par salle. **A2 est une seule zone** : l’a
 - Chaque tableau a sa propre zone de clic, correspondant au cadre visible. Le glissement modifie sa position dans les deux axes ; il s’arrête aux limites et aux cadres voisins. Un geste correspond à une annulation.
 - L’ajout cherche un rectangle libre, aux limites de la zone et autour des œuvres présentes. Si nécessaire, seule la nouvelle œuvre est réduite, en conservant son ratio. Aucune œuvre déjà placée n’est déplacée ou redimensionnée.
 - L’ajout automatique refuse une taille dont le petit côté serait inférieur à **25 cm dans le showroom**. L’œuvre reste dans la réserve avec un message explicite. Les réglages manuels de taille restent indépendants de ce seuil d’ajout automatique.
-- Les dimensions réelles de la description sont indépendantes de la taille dans le showroom. La poignée et les champs de largeur/hauteur utilisent la même géométrie que la galerie ; les champs acceptent la virgule décimale. Les valeurs arrondies à l’écran ne bloquent plus une taille valide.
+- Les dimensions réelles définissent la référence 100 % à chaque modification. La taille manuelle peut ensuite être ajustée indépendamment et reste conservée lors des sauvegardes. La poignée et les champs de largeur/hauteur utilisent la même géométrie que la galerie ; les champs acceptent la virgule décimale. Les valeurs arrondies à l’écran ne bloquent plus une taille valide.
 - Les cartels sont masqués lorsqu’ils entreraient en collision avec un autre cadre ou cartel. Le titre reste disponible dans la fiche et la liste des œuvres.
 
 Le plan de salle reste déplié. La réserve et le brouillon appartiennent uniquement à la salle ouverte. Un brouillon incomplet peut être enregistré ; appliquer à la galerie exige toutes les œuvres placées sans chevauchement. Les anciens identifiants d’emplacement restent lisibles, mais les nouveaux accrochages utilisent la zone partagée.
@@ -19,7 +19,9 @@ Le serveur autorise plusieurs œuvres avec le même identifiant de zone et véri
 
 La migration `202609220001_independent_showroom_size.sql` prépare les bornes et la suppression de l’ancienne unicité d’emplacement pour Supabase. Elle n’a pas été exécutée sur un service distant. Le site de production utilise Blob ; aucun import ou remplacement de son catalogue n’est nécessaire. Le contrôle public préalable à cette livraison retrouve 26 œuvres, deux salles et aucune dimension réelle renseignée, donc aucun changement de taille dû à la séparation des dimensions.
 
-## Vérifications du 22 septembre 2026 UTC
+Voir [DIMENSIONS_CAMERA.md](DIMENSIONS_CAMERA.md) pour la validation des dimensions et du nouveau mur.
+
+## Historique des vérifications du 22 septembre 2026 UTC
 
 ```sh
 npm test

@@ -148,11 +148,12 @@ function Architecture({
     const model = scene.clone(true);
     model.updateMatrixWorld(true);
     for (const [index, slot] of getSlots(roomId).entries()) {
-      const name = `anchor_slot_${String(slot.anchorIndex ?? index + 1).padStart(2, "0")}`;
+      const name = `anchor_slot_${String(slot.anchorIndex ?? slot.geometryAnchorIndex ?? index + 1).padStart(2, "0")}`;
       const anchor = model.getObjectByName(name);
       if (!anchor) throw new Error(`Ancre GLB absente : ${name}`);
       const point = anchor.getWorldPosition(new Vector3());
       point.y += slot.anchorOffsetY ?? 0;
+      point.x += slot.geometryAnchorOffsetX ?? 0;
       if (
         point.distanceTo(
           new Vector3(

@@ -41,7 +41,7 @@ export default function PlacementEditor({
   collectionRooms,
   onChange,
 }: Props) {
-  const slots = getZones(artwork.roomId);
+  const slots = getZones(artwork.roomId, rooms);
   const selected = slots.find((s) => s.id === artwork.slotId);
   const [wall, setWall] = useState(selected ? wallKey(selected) : 1);
   const [dragging, setDragging] = useState(false);
