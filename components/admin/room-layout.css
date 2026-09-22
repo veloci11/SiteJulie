@@ -1,0 +1,399 @@
+.admin-room-entry {
+  padding: 14px;
+  border: 1px solid #d5d7ca;
+  border-radius: 8px;
+  background: #fafbf6;
+  font-size: 12px;
+}
+.admin-room-entry > button {
+  display: flex;
+  margin-top: 10px;
+}
+.room-layout-editor {
+  color: #35412e;
+}
+.room-layout-editor .room-layout-heading h1 {
+  margin: 12px 0;
+  font:
+    500 40px Georgia,
+    serif;
+}
+.room-layout-heading > p {
+  line-height: 1.6;
+}
+.room-layout-heading .admin-overline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.room-layout-controls {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.room-layout-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.room-layout-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  align-items: center;
+  margin: 22px 0;
+}
+.room-layout-workspace {
+  display: grid;
+  grid-template-columns: minmax(340px, 1fr) minmax(350px, 1.25fr);
+  gap: 24px;
+  align-items: start;
+}
+.room-layout-workspace .admin-room-map {
+  margin: 0;
+}
+.room-layout-wall-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  margin-bottom: 18px;
+}
+.room-layout-wall-tabs button {
+  display: grid;
+  gap: 4px;
+  place-items: center;
+  min-height: 54px;
+  padding: 8px 4px;
+  background: #f6f5ee;
+  color: #394b2f;
+  border: 1px solid #cbd0bf;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.room-layout-wall-tabs button[aria-pressed="true"] {
+  background: #edf1e5;
+  border: 2px solid #455938;
+}
+.room-layout-wall-tabs span {
+  font-size: 11px;
+}
+.room-layout-wall {
+  padding: 20px;
+  border: 1px solid #d8d4c8;
+  border-radius: 8px;
+  min-width: 0;
+  background: #fffdf8;
+}
+.room-layout-wall h2 {
+  margin: 0;
+  font:
+    500 25px Georgia,
+    serif;
+}
+.room-layout-wall h2 small {
+  display: block;
+  margin-top: 6px;
+  font:
+    12px Arial,
+    sans-serif;
+  color: #637057;
+}
+.room-layout-board {
+  margin-top: 20px;
+  min-height: 0;
+}
+.room-layout-board .admin-wall-slot {
+  cursor: pointer;
+}
+.room-layout-board .admin-wall-slot.is-filled {
+  cursor: grab;
+}
+.room-layout-board .admin-wall-slot.is-free {
+  background: #e9eee1;
+  border: 0;
+}
+.room-layout-board .admin-wall-slot.selected {
+  border: 0;
+  background: #e4f1ef;
+}
+.room-layout-slot-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+.room-layout-slot-list > button {
+  min-width: 0;
+  min-height: 52px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 8px;
+  background: #f6f5ee;
+  border: 1px solid #d5d7ca;
+  border-radius: 5px;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.room-layout-slot-list > button[aria-pressed="true"] {
+  border: 2px solid #24646c;
+  background: #eaf2f0;
+}
+.room-layout-slot-list img {
+  width: 28px;
+  height: 32px;
+  object-fit: contain;
+}
+.room-layout-slot-list b {
+  font-size: 11px;
+  white-space: nowrap;
+}
+.room-layout-slot-list span {
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+.room-layout-selection {
+  margin-top: 18px;
+  padding: 16px;
+  border: 1px solid #a4bab5;
+  border-radius: 6px;
+  background: #f3f8f5;
+}
+.room-layout-selection > div:first-child {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.room-layout-selection img {
+  width: 42px;
+  height: 48px;
+  object-fit: contain;
+}
+.room-layout-selection strong {
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.room-layout-selection p {
+  margin: 5px 0 0;
+  font-size: 12px;
+}
+.room-layout-adjust {
+  margin-top: 16px;
+}
+.room-layout-adjust summary {
+  cursor: pointer;
+  font-size: 13px;
+  padding: 8px 0;
+}
+.room-layout-adjust label,
+.room-layout-adjust .admin-offset-field {
+  display: grid;
+  gap: 10px;
+  font-size: 13px;
+  margin: 14px 0;
+}
+.room-layout-adjust input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #bdc6b1;
+  border-radius: 5px;
+  color: inherit;
+  background: #fff;
+  font: inherit;
+}
+.room-layout-adjust input[type="range"] {
+  accent-color: #536946;
+}
+.room-layout-empty-selection {
+  padding: 16px;
+  font-size: 13px;
+  line-height: 1.6;
+  background: #f3f4e9;
+  border-radius: 5px;
+}
+.room-layout-wall .admin-placement-warning button {
+  border: 0;
+  background: none;
+  text-decoration: underline;
+  color: inherit;
+  font: inherit;
+  padding: 0;
+  cursor: pointer;
+}
+.room-layout-wall .admin-placement-warning li {
+  margin: 8px 0;
+}
+.room-layout-dock {
+  position: sticky;
+  bottom: 0;
+  z-index: 15;
+  margin-top: 24px;
+  padding: 14px 18px;
+  background: #faf8f1;
+  border: 1px solid #c9cdbf;
+  border-radius: 10px 10px 0 0;
+  box-shadow: 0 -6px 24px #24351c10;
+}
+.room-layout-reserve {
+  border: 1px dashed #8a987b;
+  border-radius: 6px;
+  padding: 10px 12px;
+  background: #f0f3e9;
+}
+.room-layout-reserve-heading {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  font-size: 12px;
+}
+.room-layout-tray {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 8px 2px 2px;
+  min-height: 42px;
+}
+.room-layout-tray > p {
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 5px 0;
+  color: #59654f;
+}
+.room-layout-tray > button {
+  display: flex;
+  flex: 0 0 154px;
+  gap: 8px;
+  align-items: center;
+  min-height: 58px;
+  padding: 7px;
+  border: 1px solid #bbc5b0;
+  border-radius: 5px;
+  background: #fff;
+  text-align: left;
+  color: inherit;
+  font-size: 11px;
+  cursor: grab;
+}
+.room-layout-tray > button[aria-pressed="true"] {
+  border: 2px solid #24646c;
+  background: #eaf2f0;
+}
+.room-layout-tray img {
+  width: 36px;
+  height: 42px;
+  object-fit: contain;
+}
+.room-layout-tray span {
+  overflow-wrap: anywhere;
+}
+.room-layout-status {
+  padding: 9px 0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.room-layout-status p {
+  margin: 0 0 5px;
+}
+.room-layout-status > span {
+  color: #526146;
+}
+.room-layout-error {
+  color: #9b3225;
+}
+.room-layout-save-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.room-layout-exit {
+  width: min(480px, calc(100vw - 32px));
+  box-sizing: border-box;
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  padding: 24px;
+  border: 1px solid #c9cdbf;
+  border-radius: 10px;
+  color: #35412e;
+  background: #faf8f1;
+}
+.room-layout-exit::backdrop {
+  background: #17221280;
+}
+.room-layout-exit h2 {
+  margin: 0;
+  font:
+    500 28px Georgia,
+    serif;
+}
+.room-layout-exit p {
+  font-size: 14px;
+  line-height: 1.65;
+}
+.room-layout-exit button {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  margin-top: 12px;
+  min-height: 44px;
+}
+@media (max-width: 1150px) {
+  .room-layout-workspace {
+    grid-template-columns: 1fr;
+  }
+  .room-layout-workspace .admin-room-map {
+    max-width: none;
+  }
+}
+@media (max-width: 700px) {
+  .room-layout-editor .room-layout-heading h1 {
+    font-size: 30px;
+  }
+  .room-layout-heading > p {
+    font-size: 13px;
+  }
+  .room-layout-wall {
+    padding: 12px;
+  }
+  .room-layout-slot-list {
+    grid-template-columns: 1fr;
+  }
+  .room-layout-dock {
+    padding: 10px;
+    margin-left: -8px;
+    margin-right: -8px;
+  }
+  .room-layout-save-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .room-layout-editor .room-layout-save-actions button {
+    padding: 10px 7px;
+    font-size: 11px;
+    justify-content: center;
+    white-space: normal;
+    line-height: 1.35;
+  }
+  .room-layout-save-actions svg {
+    display: none;
+  }
+  .room-layout-tray > button {
+    flex-basis: 132px;
+  }
+  .room-layout-status {
+    font-size: 11px;
+  }
+}
+@media (max-height: 520px) {
+  .room-layout-dock {
+    position: static;
+  }
+}

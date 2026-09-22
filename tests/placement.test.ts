@@ -10,6 +10,9 @@ import {
   dragPlacementOffsets,
   placementIssue,
   placementLimits,
+  safeDisplayScale,
+  resizedScaleFromPointer,
+  safePlacementOffsets,
 } from "@/lib/validation/placement";
 const artwork: AdminArtwork = {
   id: "placement-a",
@@ -86,8 +89,8 @@ describe("wall placement contract", () => {
   it("preserves source ratio and declared dimensions while changing presentation size", () => {
     const source = { ...artwork, displayScale: 0.5 };
     const size = artworkSize(source, getSlots()[0]);
-    expect(size.width).toBeCloseTo(0.4);
-    expect(size.height).toBeCloseTo(0.6);
+    expect(size.width).toBeCloseTo(1);
+    expect(size.height).toBeCloseTo(1.5);
     expect(source.widthCm).toBe(80);
     expect(source.heightCm).toBe(120);
     expect(size.width / size.height).toBeCloseTo(600 / 900);
@@ -139,7 +142,7 @@ describe("wall placement contract", () => {
   });
   it("rejects malformed offsets/scales and retains sold artworks as published", () => {
     for (const patch of [
-      { displayScale: 0.34 },
+      { displayScale: 0.009 },
       { displayScale: 1.1 },
       { placementOffsetX: Infinity },
       { placementOffsetY: 6 },
@@ -157,8 +160,9 @@ describe("wall placement contract", () => {
   });
   it("converts pointer movement to centimetres in both directions without changing the slot", () => {
     const slot = getSlots()[0];
+    const source = { ...artwork, displayScale: 0.4 };
     const result = dragPlacementOffsets(
-      artwork,
+      source,
       slot,
       { x: 0.1, y: -0.1 },
       { x: 20, y: -15 },
@@ -166,14 +170,19 @@ describe("wall placement contract", () => {
     );
     expect(result).toEqual({ placementOffsetX: 0.3, placementOffsetY: 0.05 });
     expect(
-      resolvePlacement({ ...artwork, ...result }, [], ["room-1"]).slotId,
+      resolvePlacement(
+        { ...artwork, displayScale: 0.4, ...result },
+        [],
+        ["room-1"],
+      ).slotId,
     ).toBe(artwork.slotId);
   });
   it("clamps captured drags outside the preview to whole-centimetre safe bounds", () => {
     const slot = getSlots()[0],
-      limits = placementLimits(artwork, slot);
+      limits = placementLimits({ ...artwork, displayScale: 0.4 }, slot);
+    const source = { ...artwork, displayScale: 0.4 };
     const result = dragPlacementOffsets(
-      artwork,
+      source,
       slot,
       { x: 0, y: 0 },
       { x: 10000, y: -10000 },
@@ -183,15 +192,96 @@ describe("wall placement contract", () => {
       placementOffsetX: Math.floor(limits.horizontal * 100) / 100,
       placementOffsetY: Math.floor(limits.vertical * 100) / 100,
     });
-    expect(placementIssue({ ...artwork, ...result }, slot, [])).toBeNull();
+    expect(
+      placementIssue({ ...artwork, displayScale: 0.4, ...result }, slot, []),
+    ).toBeNull();
     expect(
       dragPlacementOffsets(
-        artwork,
+        source,
         slot,
         { x: 0.2, y: 0.1 },
         { x: 50, y: 50 },
         { width: 0, height: 0 },
       ),
     ).toEqual({ placementOffsetX: 0.2, placementOffsetY: 0.1 });
+  });
+});
+
+describe("Independent showroom sizing", () => {
+  it("moves within free space and stops a fast downward drag before the lower frame", () => {
+    const upper = { ...artwork, slotId: "room-1-slot-02", displayScale: 0.4 };
+    const lower = { ...artwork, id: "lower", slotId: "room-1-slot-13", displayScale: 0.6 };
+    const slot = getSlots()[1];
+    expect(safePlacementOffsets(upper, slot, { placementOffsetX: 0.3, placementOffsetY: 0 }, [lower])).toEqual({ placementOffsetX: 0.3, placementOffsetY: 0 });
+    const stopped = safePlacementOffsets(upper, slot, { placementOffsetX: 0, placementOffsetY: -0.8 }, [lower]);
+    expect(stopped.placementOffsetY).toBeGreaterThanOrEqual(-0.06);
+    expect(stopped.placementOffsetY).toBeLessThanOrEqual(-0.04);
+    expect(placementIssue({ ...upper, ...stopped }, slot, [lower])).toBeNull();
+  });
+  it("keeps visual size identical when only description dimensions change", () => {
+    const slot = getSlots()[0];
+    const old = { ...artwork, displayScale: 0.7 };
+    expect(
+      artworkSize({ ...old, widthCm: 5000, heightCm: 8000 }, slot),
+    ).toEqual(artworkSize(old, slot));
+    expect(() =>
+      resolvePlacement(
+        { ...old, widthCm: 5000, heightCm: 8000 },
+        [],
+        ["room-1"],
+      ),
+    ).not.toThrow();
+  });
+  it("stops resizing at the slot edge without moving the artwork's centre", () => {
+    const slot = getSlots()[0],
+      a = {
+        ...artwork,
+        displayScale: 0.4,
+        placementOffsetX: 0.45,
+        placementOffsetY: 0.3,
+      };
+    const scale = safeDisplayScale(a, slot, 4, []);
+    expect(scale).toBeCloseTo(0.7);
+    expect(placementIssue({ ...a, displayScale: scale }, slot, [])).toBeNull();
+    expect(
+      placementIssue({ ...a, displayScale: scale + 0.01 }, slot, []),
+    ).not.toBeNull();
+    expect(safeDisplayScale(a, slot, -5, [])).toBe(0.01);
+  });
+  it("blocks expansion before a lower companion frame and preserves the 4cm gap", () => {
+    const upper = { ...artwork, slotId: "room-1-slot-02", displayScale: 0.4 };
+    const neighbor = {
+      ...artwork,
+      id: "lower",
+      slotId: "room-1-slot-13",
+      displayScale: 0.6,
+    };
+    const actual = getSlots().find((s) => s.id === upper.slotId)!;
+    const scale = safeDisplayScale(upper, actual, 1, [neighbor]);
+    expect(scale).toBeCloseTo(0.44);
+    expect(
+      placementIssue({ ...upper, displayScale: scale }, actual, [neighbor]),
+    ).toBeNull();
+    expect(
+      placementIssue({ ...upper, displayScale: scale + 0.01 }, actual, [
+        neighbor,
+      ]),
+    ).toContain("chevauche");
+    expect(
+      resizedScaleFromPointer(
+        0.4,
+        { width: 2, height: 3 },
+        { x: 10, y: 15 },
+        100,
+      ),
+    ).toBeCloseTo(0.5);
+    expect(
+      resizedScaleFromPointer(
+        0.4,
+        { width: 2, height: 3 },
+        { x: 10, y: 15 },
+        0,
+      ),
+    ).toBe(0.4);
   });
 });

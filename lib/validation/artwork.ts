@@ -1,8 +1,9 @@
 import { z } from "zod";
 import { collectionFitsRoom } from "@/lib/data/collections";
 import type { AdminArtwork, Artwork, SiteSettings } from "@/lib/data/types";
-import { getSlots } from "@/lib/museum/config";
-import { placementIssue } from "./placement";
+import { getSlots, MIN_DISPLAY_SCALE } from "@/lib/museum/config";
+import { placementIssue, findZonePlacement } from "./placement";
+import { getZones, normalizeZoneArtwork } from "@/lib/museum/zones";
 export class ServiceError extends Error {
   constructor(
     message: string,
@@ -51,7 +52,7 @@ export const artworkSchema = z
     frameStyle: z.enum(["brass", "oak", "white"]),
     placementOffsetX: z.number().finite().min(-5).max(5).default(0),
     placementOffsetY: z.number().finite().min(-5).max(5).default(0),
-    displayScale: z.number().finite().min(0.35).max(1).default(1),
+    displayScale: z.number().finite().min(MIN_DISPLAY_SCALE).max(1).default(1),
     order: z.number().int().min(0).max(100000),
     collection: z.string().trim().max(200),
     revision: z.number().int().min(0),
@@ -132,6 +133,7 @@ export function resolvePlacement(
   rooms: string[],
   collectionRooms: Record<string, string> = {},
 ): AdminArtwork {
+  a = normalizeZoneArtwork(a);
   if (a.publication !== "published") {
     if (!collectionFitsRoom(a, all, a.roomId, collectionRooms))
       throw new ServiceError(
@@ -144,57 +146,32 @@ export function resolvePlacement(
     throw new ServiceError(
       "Ajoutez une image prête et son texte alternatif avant publication.",
     );
-  const occupied = new Set(
-    all
-      .filter((x) => x.id !== a.id && x.publication === "published")
-      .map((x) => x.slotId),
-  );
   const roomCompatible = (roomId: string) =>
     collectionFitsRoom(a, all, roomId, collectionRooms);
-  const slots = rooms.flatMap(getSlots);
-  const ratio = a.imageWidth / a.imageHeight;
-  const widthM = a.widthCm
-    ? a.widthCm / 100
-    : a.heightCm
-      ? (a.heightCm / 100) * ratio
-      : null;
-  const heightM = a.heightCm
-    ? a.heightCm / 100
-    : a.widthCm
-      ? a.widthCm / 100 / ratio
-      : null;
-  const scale = a.displayScale ?? 1;
-  const compatible = (slot: ReturnType<typeof getSlots>[number]) =>
-    (!widthM || widthM * scale <= slot.maxWidthM) &&
-    (!heightM || heightM * scale <= slot.maxHeightM) &&
-    (!widthM || (widthM / ratio) * scale <= slot.maxHeightM);
+  const slots = rooms.flatMap(getZones);
+  if (!a.slotId) {
+    for (const slot of slots) {
+      if (!roomCompatible(slot.roomId)) continue;
+      const fitted = findZonePlacement(a, slot, all, true);
+      if (fitted) return fitted;
+    }
+    throw new ServiceError(
+      "Aucune zone ne permet d’ajouter ce tableau à une taille lisible. Réorganisez une zone ou choisissez une autre salle.",
+      409,
+    );
+  }
   const slot = a.slotId
     ? slots.find((x) => x.id === a.slotId && x.roomId === a.roomId)
-    : slots.find(
-        (x) =>
-          !occupied.has(x.id) &&
-          compatible(x) &&
-          roomCompatible(x.roomId) &&
-          !placementIssue({ ...a, roomId: x.roomId, slotId: x.id }, x, all),
-      );
+    : undefined;
   if (!slot)
     throw new ServiceError(
       "Aucun emplacement disponible pour cette collection. Choisissez un emplacement adapté ou activez une salle pour une nouvelle collection.",
-      409,
-    );
-  if (occupied.has(slot.id))
-    throw new ServiceError(
-      "Cet emplacement est déjà occupé. Choisissez Automatique ou un autre emplacement.",
       409,
     );
   if (!roomCompatible(slot.roomId))
     throw new ServiceError(
       "Une collection reste dans sa salle. Choisissez un emplacement compatible.",
       409,
-    );
-  if (!compatible(slot))
-    throw new ServiceError(
-      "Les dimensions physiques dépassent cet emplacement. Choisissez un emplacement adapté.",
     );
   const issue = placementIssue(
     { ...a, roomId: slot.roomId, slotId: slot.id },

@@ -191,14 +191,14 @@ try {
     })
     .click();
   const scale = page.getByRole("slider", {
-    name: "Taille d’accrochage",
+    name: "Taille dans le showroom",
     exact: true,
   });
   await scale.fill("60");
   const draggable = page.locator(".admin-wall-slot.selected .is-draggable");
   await expect(draggable).toBeVisible();
   await draggable.scrollIntoViewIfNeeded();
-  const zone = await page.locator(".admin-wall-slot.selected").boundingBox();
+  const zone = await page.locator(".admin-movement-zone").boundingBox();
   async function dragBy(dx, dy) {
     const box = await draggable.boundingBox();
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);

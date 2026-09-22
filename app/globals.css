@@ -1623,3 +1623,39 @@ select:focus-visible {
 .about-courses h2 {
   font: 400 36px/1.15 var(--serif);
 }
+
+/* The two gallery views share the same quiet, high-contrast switch. */
+a.gallery-view-switch {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--ink);
+  border-radius: 5px;
+  background: var(--ink);
+  color: var(--paper);
+  font: 11px var(--sans);
+  text-decoration: none;
+}
+a.gallery-view-switch:hover {
+  background: #4a503e;
+  border-color: #4a503e;
+  color: #fff;
+}
+a.gallery-view-switch svg {
+  flex-shrink: 0;
+}
+@media (max-width: 1100px) {
+  a.visit-catalogue.gallery-view-switch {
+    width: 38px;
+    padding: 0;
+  }
+}
+@media (max-width: 700px) {
+  a.gallery-view-switch {
+    min-height: 38px;
+    font-size: 10px;
+  }
+}

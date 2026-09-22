@@ -22,9 +22,16 @@ interface Props {
   artwork: Artwork;
   texture: Texture;
   selected: boolean;
+  showCartel?: boolean;
   onSelect: (destination: Destination) => void;
 }
-export function ArtworkFrame({ artwork, texture, selected, onSelect }: Props) {
+export function ArtworkFrame({
+  artwork,
+  texture,
+  selected,
+  onSelect,
+  showCartel = true,
+}: Props) {
   const slot = slotForArtwork(artwork);
   const [hover, setHover] = useState(false),
     [detail, setDetail] = useState<Texture | null>(null);
@@ -323,14 +330,22 @@ export function ArtworkFrame({ artwork, texture, selected, onSelect }: Props) {
           />
         </mesh>
       </group>
-      <mesh position={[0, -h / 2 - CARTEL_GAP, -0.019]}>
-        <boxGeometry args={[CARTEL_WIDTH, CARTEL_HEIGHT, 0.006]} />
-        <meshStandardMaterial color="#d8d2c7" metalness={0} roughness={0.95} />
-      </mesh>
-      <mesh position={[0, -h / 2 - CARTEL_GAP, -0.015]}>
-        <planeGeometry args={[CARTEL_WIDTH - 0.02, CARTEL_HEIGHT - 0.01]} />
-        <meshBasicMaterial map={label} transparent toneMapped={false} />
-      </mesh>
+      {showCartel && (
+        <group>
+          <mesh position={[0, -h / 2 - CARTEL_GAP, -0.019]}>
+            <boxGeometry args={[CARTEL_WIDTH, CARTEL_HEIGHT, 0.006]} />
+            <meshStandardMaterial
+              color="#d8d2c7"
+              metalness={0}
+              roughness={0.95}
+            />
+          </mesh>
+          <mesh position={[0, -h / 2 - CARTEL_GAP, -0.015]}>
+            <planeGeometry args={[CARTEL_WIDTH - 0.02, CARTEL_HEIGHT - 0.01]} />
+            <meshBasicMaterial map={label} transparent toneMapped={false} />
+          </mesh>
+        </group>
+      )}
     </group>
   );
 }

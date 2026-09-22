@@ -43,6 +43,7 @@ vi.mock("@vercel/blob", () => {
 });
 
 import { mutateBlob, readBlob } from "@/lib/data/blob";
+import { randomUUID } from "node:crypto";
 
 beforeEach(() => {
   fake.body = null;
@@ -52,6 +53,32 @@ beforeEach(() => {
 });
 
 describe("Vercel Blob catalogue", () => {
+  it("retains private room drafts across unrelated catalogue mutations", async () => {
+    const draft = {
+      version: randomUUID(),
+      savedAt: new Date().toISOString(),
+      plan: {
+        roomId: "room-1",
+        items: [
+          {
+            artworkId: "test-1",
+            revision: 1,
+            slotId: null,
+            placementOffsetX: 0,
+            placementOffsetY: 0,
+            displayScale: 0.6,
+          },
+        ],
+      },
+    };
+    await mutateBlob((store) => {
+      store.roomLayoutDrafts = { "room-1": draft };
+    });
+    await mutateBlob((store) => {
+      store.settings.heroTitle = "New title";
+    });
+    expect((await readBlob()).roomLayoutDrafts?.["room-1"]).toEqual(draft);
+  });
   it("creates an empty catalogue and serializes concurrent mutations", async () => {
     await Promise.all([
       mutateBlob((store) => store.rooms.push("room-2")),

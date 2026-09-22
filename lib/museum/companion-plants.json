@@ -1,0 +1,63 @@
+{
+  "asset": "/museum/companion-plants.glb?v=3",
+  "species": {
+    "kentia": {
+      "height": 1.85,
+      "radius": 0.66,
+      "potHeight": 0.49,
+      "potRadius": 0.28
+    },
+    "zamioculcas": {
+      "height": 1.12,
+      "radius": 0.48,
+      "potHeight": 0.36,
+      "potRadius": 0.255
+    },
+    "aspidistra": {
+      "height": 1.3,
+      "radius": 0.57,
+      "potHeight": 0.4,
+      "potRadius": 0.27
+    }
+  },
+  "hall": [
+    {
+      "id": "hall-palm",
+      "species": "kentia",
+      "position": [-8.75, 0.012, -4.9],
+      "rotation": 0.5,
+      "scale": 1,
+      "zone": "left-alcove",
+      "purpose": "Corner of the reading alcove, away from painting walls"
+    },
+    {
+      "id": "reading-understory",
+      "species": "zamioculcas",
+      "position": [-3.55, 0.012, 7.4],
+      "rotation": 1.1,
+      "scale": 0.92,
+      "zone": "reading-lounge",
+      "purpose": "At the outer corner of the reading chair and table, outside the walking aisle"
+    }
+  ],
+  "extension": [
+    {
+      "id": "salon-broad-leaves",
+      "species": "aspidistra",
+      "position": [-7.0, 0.012, -7.45],
+      "rotation": -0.6,
+      "scale": 1,
+      "zone": "left-alcove",
+      "purpose": "Beside the left alcove bench, clear of its seat"
+    },
+    {
+      "id": "salon-understory",
+      "species": "zamioculcas",
+      "position": [7.05, 0.012, -7.5],
+      "rotation": 3.3,
+      "scale": 1.12,
+      "zone": "right-alcove",
+      "purpose": "Beside the right alcove bench, clear of its seat"
+    }
+  ]
+}

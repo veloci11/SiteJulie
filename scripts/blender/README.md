@@ -1,5 +1,14 @@
 # Génération du décor contemporain — point d’entrée actuel
 
+`companion_plants.py` génère aussi les plantes basses et le palmier dans `companion-plants.glb`, avec leurs pots creux et leur terre. Source : `assets/museum/plants/companions/companion-plants.blend`. Validation : `node scripts/blender/validate_companion_plants.mjs`. Voir `docs/PLANTES_COMPLEMENTAIRES.md` pour les placements et les vérifications.
+
+Végétation actuelle : `tree_ficus.py` génère les deux ficus à petites feuilles,
+dans les fichiers historiques `fig-reading.glb` et `fig-central.glb`.
+Les sources sont `assets/museum/trees/ficus-{reading,central}/ficus-source.blend`.
+La finition sombre des pots est appliquée seulement aux matériaux de pot dans
+`components/museum/bakedMaterials.ts`. Voir `docs/VEGETATION_FICUS.md` pour les
+mesures actuelles ; les chiffres de figuiers plus bas sont historiques.
+
 Le site charge `hall-contemporary.glb`, `extension-terminal-contemporary.glb` pour la dernière salle, `extension-contemporary.glb` pour une salle intermédiaire éventuelle, et les deux variantes de figuier. Le cap rapporté précédent est archivé et ne doit plus être instancié. Les commandes méditerranéennes plus bas sont conservées comme historique ; elles ne représentent plus le décor actif.
 
 Les fichiers livrés ont été produits avec **Blender 5.2.1 LTS**, Cycles Metal sur Apple M1 Pro, puis décodés et vérifiés avec Three.js. Les captures navigateur de la nouvelle finition sont réalisées séparément par la QA. Le builder contient les trois corrections finales : plafonds arrêtés à ±9 m pour supprimer la superposition au raccord, panneau du fond culminant à .72 m sous le cartel, et faces des pots/céramiques orientées vers l’extérieur. Les anciens scripts de réparation ne sont pas nécessaires pour une génération neuve.
@@ -22,9 +31,9 @@ Si les sources de base ont été retirées, `build_museum.py` peut les refabriqu
 node scripts/blender/prepare_interior_details.mjs
 node scripts/blender/prepare_contemporary_details.mjs
 
-# Les sources du figuier peuvent aussi être régénérées sans rendu de studio
-/Applications/Blender.app/Contents/MacOS/Blender --background --threads 2 --python scripts/blender/tree_fig_variants.py -- reading
-/Applications/Blender.app/Contents/MacOS/Blender --background --threads 2 --python scripts/blender/tree_fig_variants.py -- central
+# Les sources des ficus peuvent aussi être régénérées sans rendu de studio
+/Applications/Blender.app/Contents/MacOS/Blender --background --threads 2 --python scripts/blender/tree_ficus.py -- reading
+/Applications/Blender.app/Contents/MacOS/Blender --background --threads 2 --python scripts/blender/tree_ficus.py -- central
 node scripts/blender/validate_fig_variants.mjs
 
 # Cycles : exécuter les salles successivement, sans benchmark GPU simultané
@@ -58,7 +67,7 @@ La géométrie et les corrections sont reproductibles ; les octets des textures/
 
 ## Matériaux et résultats
 
-`LIGHTMAP` transporte une irradiance blanche, sans grain ni albédo, sur UV1. `SURFACE` ajoute les détails PBR répétables sur UV0 métriques ; la période spéciale du bois de plafond est 2.2 m, contre .60 m sur les meubles. Le runtime doit conserver la reconstruction diffuse prévue et éviter un second éclairage diffus. Les œuvres restent indépendantes du décor. Chaque figuier conserve trois meshes PBR, les vertex colors et des feuilles opaques DoubleSide ; aucun ciel extérieur n’est nécessaire. Les limites de recto/verso sont détaillées dans son guide.
+`LIGHTMAP` transporte une irradiance blanche, sans grain ni albédo, sur UV1. `SURFACE` ajoute les détails PBR répétables sur UV0 métriques ; la période spéciale du bois de plafond est 2.2 m, contre .60 m sur les meubles. Le runtime doit conserver la reconstruction diffuse prévue et éviter un second éclairage diffus. Les œuvres restent indépendantes du décor. Chaque ficus actuel conserve quatre meshes PBR (dont la terre), les vertex colors et des feuilles opaques DoubleSide ; aucun ciel extérieur n’est nécessaire. Les limites de recto/verso sont détaillées dans son guide.
 
 | Fichier | Octets | Triangles | Lots |
 |---|---:|---:|---:|

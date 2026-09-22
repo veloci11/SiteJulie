@@ -6,7 +6,7 @@ import {nodeDracoLoader} from './node_draco_loader.mjs';
 globalThis.self=globalThis;globalThis.createImageBitmap=async()=>({width:2048,height:2048,close(){}});
 const root=new URL('../../',import.meta.url),path=new URL('public/museum/manifest.json',root);
 const previous=JSON.parse(await readFile(path)),contract=JSON.parse(await readFile(new URL('scripts/blender/contemporary_contract.json',root)));
-const stats={};for(const [key,file] of Object.entries({hall:'hall-contemporary.glb',extension:'extension-contemporary.glb',terminal:'extension-terminal-contemporary.glb',endCap:'end-cap-contemporary.glb',figReading:'fig-reading.glb',figCentral:'fig-central.glb'})){
+const stats={};for(const [key,file] of Object.entries({hall:'hall-contemporary.glb',extension:'extension-contemporary.glb',terminal:'extension-terminal-contemporary.glb',endCap:'end-cap-contemporary.glb',figReading:'fig-reading.glb',figCentral:'fig-central.glb',companionPlants:'companion-plants.glb'})){
  const bytes=await readFile(new URL('public/museum/'+file,root));const scene=(await new GLTFLoader().setDRACOLoader(nodeDracoLoader).parseAsync(bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength),'')).scene;scene.updateMatrixWorld(true);const box=new Box3().setFromObject(scene,true);let triangles=0,meshes=0;
  scene.traverse(o=>{if(o.isMesh){meshes++;triangles+=(o.geometry.index?.count??o.geometry.attributes.position.count)/3;}});
  stats[key]={file:'/museum/'+file,bytes:bytes.length,triangles,meshes,sha256:createHash('sha256').update(bytes).digest('hex'),bounds:{min:box.min.toArray(),max:box.max.toArray()}};

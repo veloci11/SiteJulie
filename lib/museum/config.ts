@@ -16,6 +16,7 @@ export interface ArtworkSlot {
 export const ROOM_DEPTH = 18;
 // Measured from ArtworkFrame: the backing is wider than the visible metal rim.
 export const FRAME_OUTSET = 0.17;
+export const MIN_DISPLAY_SCALE = 0.01;
 export const CARTEL_WIDTH = 0.62;
 export const CARTEL_HEIGHT = 0.19;
 export const CARTEL_GAP = 0.25;
@@ -115,20 +116,9 @@ export function artworkSize(
   const scale = artwork.displayScale ?? 1;
   const maxWidth = slot.maxWidthM;
   const maxHeight = slot.maxHeightM;
-  let h = Math.min(maxHeight, maxWidth / ratio) * scale;
-  let w = h * ratio;
-  const physicalWidth = artwork.widthCm
-    ? artwork.widthCm / 100
-    : artwork.heightCm
-      ? (artwork.heightCm / 100) * ratio
-      : null;
-  if (physicalWidth) {
-    const presentedW = physicalWidth * scale;
-    const presentedH = presentedW / ratio;
-    const fit = Math.min(1, maxWidth / presentedW, maxHeight / presentedH);
-    w = presentedW * fit;
-    h = presentedH * fit;
-  }
+  // Catalogue dimensions describe the original. Showroom size is independent.
+  const h = Math.min(maxHeight, maxWidth / ratio) * scale;
+  const w = h * ratio;
   return { width: w, height: h };
 }
 export function slotForArtwork(a: Artwork) {

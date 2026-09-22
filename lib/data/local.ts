@@ -3,11 +3,13 @@ import path from "node:path";
 import type { AdminArtwork, SiteSettings } from "./types";
 import { isDemo } from "@/lib/auth/server";
 import { ServiceError } from "@/lib/validation/artwork";
+import type { RoomLayoutDraft } from "@/lib/admin/room-layout";
 export interface LocalStore {
   artworks: AdminArtwork[];
   settings: SiteSettings;
   rooms: string[];
   uploads?: UploadRecord[];
+  roomLayoutDrafts?: Record<string, RoomLayoutDraft>;
 }
 export interface UploadRecord {
   id: string;
@@ -16,6 +18,7 @@ export interface UploadRecord {
   status: "pending" | "ready" | "failed";
   path: string;
   createdAt: number;
+  artworkRevision?: number;
   error?: string;
 }
 export const localRoot = () =>

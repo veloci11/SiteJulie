@@ -23,13 +23,16 @@ export function arrivalFingerprint(
       order: a.order,
       width: a.widthCm,
       height: a.heightCm,
+      // Old captures with descriptive dimensions used those to size the mesh.
+      // Catalogues without dimensions keep their existing valid captures.
+      showroomSizing: a.widthCm || a.heightCm ? "independent" : undefined,
       ratio: [a.imageWidth, a.imageHeight],
     }))
     .sort((a, b) => a.id.localeCompare(b.id));
   return createHash("sha256")
     .update(
       JSON.stringify({
-        sceneVersion: "contemporary-vaulted-blue-clouds-v16-floor-eye205",
+        sceneVersion: "contemporary-vaulted-v21-planted-seating-alcoves",
         rooms: data.rooms,
         artworks,
       }),

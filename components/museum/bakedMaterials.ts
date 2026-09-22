@@ -49,10 +49,16 @@ function detailedSurface(
   // Room identity belongs to its walls and lighting, not an abrupt material seam.
   const floorStone = /^SURFACE (hall|extension) stone 1$/.test(material.name);
   const floorJoint = /^SURFACE (hall|extension) mortar 0$/.test(material.name);
+  // The exported planter has its own material slot; other stone stays intact.
+  const planter = /^SURFACE (hall|extension) stone 0$/.test(material.name);
   const maps = details?.[String(data.surfaceKind)];
-  const period = Math.max(0.02, Number(data.surfacePeriodMeters) || 1);
+  const period = planter
+    ? 0.45
+    : Math.max(0.02, Number(data.surfacePeriodMeters) || 1);
   const scale = Number(data.lightmapRadianceScale) || 1;
-  const normalStrength = Number(data.surfaceNormalStrength) || 0.35;
+  const normalStrength = planter
+    ? 0.055
+    : Number(data.surfaceNormalStrength) || 0.35;
   const radiance = material.map;
   if (radiance) {
     radiance.channel = 1;
@@ -62,20 +68,27 @@ function detailedSurface(
   }
   const result = new MeshStandardMaterial({
     name: material.name,
-    color: floorStone
-      ? new Color().fromArray([0.69, 0.65, 0.585])
-      : floorJoint
-        ? new Color().fromArray([0.47, 0.447, 0.39])
-        : Array.isArray(data.surfaceColorLinear)
-          ? new Color().fromArray(data.surfaceColorLinear)
-          : new Color(1, 1, 1),
+    color: planter
+      ? new Color().fromArray(
+          material.name.includes("hall")
+            ? [0.105, 0.09, 0.067]
+            : [0.105, 0.067, 0.044],
+        )
+      : floorStone
+        ? new Color().fromArray([0.69, 0.65, 0.585])
+        : floorJoint
+          ? new Color().fromArray([0.47, 0.447, 0.39])
+          : Array.isArray(data.surfaceColorLinear)
+            ? new Color().fromArray(data.surfaceColorLinear)
+            : new Color(1, 1, 1),
     map: maps ? tiledMap(maps.base, period, true) : null,
     normalMap: maps ? tiledMap(maps.normal, period, false) : null,
     normalScale: new Vector2(normalStrength, normalStrength),
     roughnessMap: maps?.roughness
       ? tiledMap(maps.roughness, period, false)
       : null,
-    roughness: Number(data.surfaceRoughness) || 0.7,
+    roughness: planter ? 0.96 : Number(data.surfaceRoughness) || 0.7,
+    envMapIntensity: planter ? 0.25 : 1,
     metalness: 0,
     lightMap: radiance,
     lightMapIntensity: scale * Math.PI,

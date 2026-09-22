@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowUpRight, Box } from "lucide-react";
+import { Landmark } from "lucide-react";
 export default function PublicHeader({
   name,
   active,
@@ -38,10 +38,13 @@ export default function PublicHeader({
           Contact
         </Link>
       </nav>
-      <Link href={immersive} className="view-switch">
-        <Box size={16} />
+      <Link
+        href={immersive}
+        className="view-switch gallery-view-switch"
+        aria-label="Entrer dans la visite 3D"
+      >
+        <Landmark size={17} strokeWidth={1.5} />
         <span>Visite 3D</span>
-        <ArrowUpRight size={14} />
       </Link>
     </header>
   );

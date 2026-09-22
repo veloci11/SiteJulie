@@ -8,6 +8,7 @@ import type { Destination, PublicData } from "@/lib/data/types";
 import { ROOM_DEPTH, type Vec3 } from "@/lib/museum/config";
 import {
   destinationPose,
+  artworkPose,
   roomArrivalPose,
   distance,
   motionFromPose,
@@ -33,6 +34,7 @@ import {
   TourTimeline,
   TOUR_INITIAL_DELAY,
 } from "@/lib/museum/tour";
+import { automaticLens } from "@/lib/museum/automaticFraming";
 import { ContinuousPromenade, continuationRoom } from "@/lib/museum/promenade";
 interface Props {
   data: PublicData;
@@ -92,6 +94,10 @@ export function CameraDirector({
   const [visible, setVisible] = useState(true);
   const promenade = useRef<ContinuousPromenade | null>(null);
   const previousActiveTime = useRef(0);
+  const automaticLensState = useRef({
+    measuredAt: -Infinity,
+    target: { fov: 60, offsetX: 0, offsetY: 0 },
+  });
   const tour = useRef({
     timeline: new TourTimeline(),
     artworkId: null as string | null,
@@ -128,6 +134,84 @@ export function CameraDirector({
   const latestId = useRef(navigationId);
   latestId.current = navigationId;
   const { camera, size, invalidate, gl } = useThree();
+  const [focusInsets, setFocusInsets] = useState<{
+    top: number;
+    bottom: number;
+    left: number;
+    right: number;
+  } | null>(null);
+  useLayoutEffect(() => {
+    if (destination.kind !== "artwork") {
+      setFocusInsets(null);
+      return;
+    }
+    const shell = gl.domElement.closest<HTMLElement>(".visit-shell");
+    if (!shell) return;
+    let frame = 0;
+    const measure = () => {
+      const bounds = gl.domElement.getBoundingClientRect();
+      const header = shell
+        .querySelector(".visit-header")
+        ?.getBoundingClientRect();
+      const dock = shell.querySelector(".visit-dock")?.getBoundingClientRect();
+      const details = shell
+        .querySelector(".visit-details")
+        ?.getBoundingClientRect();
+      const portrait =
+        bounds.width <= 700 &&
+        !(bounds.height <= 520 && bounds.width > bounds.height);
+      const top = Math.max(
+        96,
+        (header?.bottom ?? bounds.top + 76) - bounds.top + 16,
+      );
+      const dockBottom = dock ? bounds.bottom - dock.top + 12 : 220;
+      const next = {
+        top: portrait ? Math.max(top, 128) : top,
+        bottom: portrait
+          ? Math.max(
+              dockBottom + 146,
+              details ? bounds.bottom - details.top + 12 : 0,
+            )
+          : dockBottom,
+        left: 16,
+        right: portrait
+          ? 16
+          : details
+            ? bounds.right - details.left + 16
+            : Math.min(330, bounds.width * 0.42),
+      };
+      setFocusInsets((previous) =>
+        previous &&
+        Object.keys(next).every(
+          (key) =>
+            Math.abs(
+              previous[key as keyof typeof next] -
+                next[key as keyof typeof next],
+            ) < 1,
+        )
+          ? previous
+          : next,
+      );
+      shell
+        .querySelectorAll(".visit-header, .visit-dock, .visit-details")
+        .forEach((node) => resize.observe(node));
+    };
+    const schedule = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(measure);
+    };
+    const resize = new ResizeObserver(schedule);
+    resize.observe(shell);
+    const mutations = new MutationObserver(schedule);
+    mutations.observe(shell, { childList: true, subtree: true });
+    measure();
+    return () => {
+      cancelAnimationFrame(frame);
+      resize.disconnect();
+      mutations.disconnect();
+    };
+  }, [destination.kind, gl, size.width, size.height]);
+
   const cameraRef = camera as PerspectiveCamera;
   const destinationKey = JSON.stringify(destination);
   function clearWake() {
@@ -245,7 +329,16 @@ export function CameraDirector({
             )
           : walk
             ? ambientWalkPosterPose(walk, size.width, size.height)
-            : destinationPose(destination, data, size.width, size.height);
+            : destination.kind === "artwork" && focusInsets
+              ? artworkPose(
+                  data.artworks.find(
+                    (artwork) => artwork.id === destination.artworkId,
+                  )!,
+                  size.width,
+                  size.height,
+                  focusInsets,
+                )
+              : destinationPose(destination, data, size.width, size.height);
       const resized =
         appliedSize.current.width !== size.width ||
         appliedSize.current.height !== size.height;
@@ -438,6 +531,7 @@ export function CameraDirector({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     destinationKey,
+    focusInsets,
     navigationId,
     reducedMotion,
     skipTransition,
@@ -529,6 +623,53 @@ export function CameraDirector({
       );
     }
     const sample = promenade.current.step(activeDelta, size.width, size.height);
+    const lens = automaticLensState.current;
+    if (activeTime - lens.measuredAt >= 0.15) {
+      lens.measuredAt = activeTime;
+      const shell = gl.domElement.closest(".visit-shell");
+      const bounds = gl.domElement.getBoundingClientRect();
+      const dock = shell?.querySelector(".visit-dock")?.getBoundingClientRect();
+      const preview = shell
+        ?.querySelector(".visit-auto-preview")
+        ?.getBoundingClientRect();
+      const portrait =
+        size.width <= 700 && !(size.height <= 520 && size.width > size.height);
+      lens.target = automaticLens(
+        sample,
+        data.artworks,
+        size.width,
+        size.height,
+        {
+          top: portrait ? 128 : 100,
+          bottom: Math.max(
+            16,
+            bounds.bottom -
+              (portrait && preview
+                ? preview.top
+                : (dock?.top ?? bounds.bottom - 16)) +
+              12,
+          ),
+          left: 16,
+          right: !portrait && preview ? bounds.right - preview.left + 16 : 16,
+        },
+      );
+    }
+    // Widen promptly on approach, relax slowly on departure: no sudden zoom
+    // when changing the watched work or resuming from its detail view.
+    const dt = Math.min(Math.max(activeDelta, 0), 0.1);
+    const blend = 1 - Math.exp(-dt * (lens.target.fov > sample.fov ? 4 : 0.35));
+    const nextFov = sample.fov + (lens.target.fov - sample.fov) * blend;
+    const shiftBlend = 1 - Math.exp(-dt * 1.5);
+    const nextX =
+      sample.offsetX + (lens.target.offsetX - sample.offsetX) * shiftBlend;
+    const nextY =
+      sample.offsetY + (lens.target.offsetY - sample.offsetY) * shiftBlend;
+    sample.fovVelocity = dt ? (nextFov - sample.fov) / dt : 0;
+    sample.offsetVelocityX = dt ? (nextX - sample.offsetX) / dt : 0;
+    sample.offsetVelocityY = dt ? (nextY - sample.offsetY) / dt : 0;
+    sample.fov = nextFov;
+    sample.offsetX = nextX;
+    sample.offsetY = nextY;
     applySample(sample, delta);
     const travel = {
       distance: promenade.current.distance,

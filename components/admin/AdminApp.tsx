@@ -21,26 +21,51 @@ import {
   normalizeCollectionOrder,
 } from "@/lib/data/collections";
 import PlacementEditor from "./PlacementEditor";
+import ArrivalRefresh from "./ArrivalRefresh";
+import { ArtworkImage, PriceInput } from "./EditorFields";
 import { notifyCatalogueChanged } from "@/lib/museum/catalogueEvents";
+import { getSlots } from "@/lib/museum/config";
+import { getZones, normalizeZoneArtwork } from "@/lib/museum/zones";
+import { slotCode, WALL_GUIDES } from "@/lib/admin/placement-guide";
+import { wallKey } from "@/lib/validation/placement";
+import RoomOverview from "./RoomOverview";
+import RoomLayoutEditor from "./RoomLayoutEditor";
+import type { RoomLayoutDraft } from "@/lib/admin/room-layout";
 import "./admin.css";
 type Data = {
   artworks: AdminArtwork[];
   settings: SiteSettings;
   rooms: string[];
+  roomLayoutDrafts?: Record<string, RoomLayoutDraft>;
 };
 async function api<T>(
   url: string,
   body?: unknown,
   method = "POST",
 ): Promise<T> {
-  const res = await fetch(url, {
-    method,
-    headers:
-      body !== undefined ? { "Content-Type": "application/json" } : undefined,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || "Opération impossible.");
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method,
+      headers:
+        body !== undefined ? { "Content-Type": "application/json" } : undefined,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+  } catch {
+    throw new Error(
+      "Connexion interrompue. Vos saisies sont conservées ; vérifiez votre connexion et réessayez.",
+    );
+  }
+  const data = await res.json().catch(() => null);
+  if (res.status === 401)
+    throw new Error(
+      "Votre session a expiré. Reconnectez-vous dans un autre onglet, puis réessayez ici : vos saisies sont conservées.",
+    );
+  if (!res.ok || !data)
+    throw new Error(
+      data?.error ||
+        "Le serveur est momentanément indisponible. Vos saisies sont conservées ; réessayez.",
+    );
   if (
     method !== "GET" &&
     [
@@ -48,6 +73,7 @@ async function api<T>(
       "/api/admin/process",
       "/api/admin/settings",
       "/api/admin/collections",
+      "/api/admin/rooms",
     ].includes(url)
   )
     notifyCatalogueChanged();
@@ -64,6 +90,14 @@ const publications = {
   published: "Publiée",
   archived: "Archivée",
 };
+function placementReference(artwork: AdminArtwork) {
+  const slot = getSlots(artwork.roomId).find(
+    (slot) => slot.id === artwork.slotId,
+  );
+  if (!slot) return "Emplacement automatique";
+  const wall = WALL_GUIDES.find((wall) => wall.id === wallKey(slot))!;
+  return `Mur ${wall.code} · ${slotCode(slot)}`;
+}
 export default function AdminApp({
   initialData,
   demo,
@@ -85,6 +119,7 @@ export default function AdminApp({
       : null,
   );
   const [editing, setEditing] = useState<AdminArtwork | null>(null);
+  const [roomEditing, setRoomEditing] = useState<string | null>(null);
   const [tab, setTab] = useState<"artworks" | "settings">("artworks");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -92,7 +127,92 @@ export default function AdminApp({
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [creatingCollection, setCreatingCollection] = useState(false);
+  const [baseline, setBaseline] = useState<AdminArtwork | null>(null);
+  const [pendingImage, setPendingImage] = useState<File | null>(null);
+  const [imageChecking, setImageChecking] = useState(false);
+  const [imagePreview, setImagePreview] = useState("");
+  const [settingsDirty, setSettingsDirty] = useState(false);
+  const [formTouched, setFormTouched] = useState(false);
+  const [progress, setProgress] = useState("");
+  const operation = useRef(false);
+  const dirty =
+    settingsDirty ||
+    Boolean(
+      editing &&
+      (formTouched ||
+        pendingImage ||
+        JSON.stringify(editing) !== JSON.stringify(baseline)),
+    );
+  useEffect(() => {
+    if (!pendingImage) {
+      setImagePreview("");
+      return;
+    }
+    const url = URL.createObjectURL(pendingImage);
+    setImagePreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [pendingImage]);
+  useEffect(() => {
+    if (!dirty && !busy) return;
+    const warn = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty, busy]);
+  function leave(action: () => void) {
+    if (operation.current) return;
+    if (
+      dirty &&
+      !window.confirm(
+        "Des modifications ne sont pas enregistrées. Quitter cet écran et les abandonner ?",
+      )
+    )
+      return;
+    setPendingImage(null);
+    setImageChecking(false);
+    setSettingsDirty(false);
+    setFormTouched(false);
+    setError("");
+    setMessage("");
+    action();
+    window.scrollTo({ top: 0 });
+  }
+  function openArtwork(artwork: AdminArtwork) {
+    setImageChecking(false);
+    const normalized = normalizeZoneArtwork(artwork);
+    setEditing(normalized);
+    setBaseline(normalized);
+    setPendingImage(null);
+    setFormTouched(false);
+    setError("");
+    setMessage("");
+    window.scrollTo({ top: 0 });
+  }
+  function showError(message: string) {
+    setMessage("");
+    setError(message);
+  }
+  function validateForm(form: HTMLFormElement) {
+    const invalid = form.querySelector<HTMLInputElement>(
+      "input:invalid, select:invalid, textarea:invalid",
+    );
+    if (!invalid) return true;
+    let ancestor = invalid.parentElement;
+    while (ancestor) {
+      if (ancestor instanceof HTMLDetailsElement) ancestor.open = true;
+      ancestor = ancestor.parentElement;
+    }
+    showError(
+      `${invalid.labels?.[0]?.childNodes[0]?.textContent?.trim() || "Champ"} : ${invalid.validationMessage}`,
+    );
+    invalid.focus();
+    return false;
+  }
   async function perform(fn: () => Promise<void>) {
+    if (operation.current) return;
+    operation.current = true;
     setBusy(true);
     setMessage("");
     setError("");
@@ -101,7 +221,9 @@ export default function AdminApp({
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erreur inattendue.");
     } finally {
+      operation.current = false;
       setBusy(false);
+      setProgress("");
     }
   }
   async function refresh() {
@@ -110,12 +232,26 @@ export default function AdminApp({
   const groups = data
     ? groupCollections(data.artworks, data.rooms, data.settings.collectionRooms)
     : [];
+  const roomCapacity = (room: string) => {
+    const slots = getZones(room);
+    const occupied = new Set(
+      data?.artworks
+        .filter((a) => a.publication === "published")
+        .map((a) => a.slotId),
+    );
+    return {
+      total: slots.length,
+      free: slots.filter((slot) => !occupied.has(slot.id)).length,
+    };
+  };
+  const suggestedGroup =
+    groups.find((group) => roomCapacity(group.roomId).free > 0) ?? groups[0];
   function newArtwork(
-    collection = groups[0]?.name ?? "",
-    roomId = groups[0]?.roomId ?? "room-1",
+    collection = suggestedGroup?.name ?? "",
+    roomId = suggestedGroup?.roomId ?? "room-1",
   ) {
     const id = crypto.randomUUID();
-    setEditing({
+    openArtwork({
       id,
       slug: `oeuvre-${id.slice(0, 8)}`,
       title: "",
@@ -151,48 +287,110 @@ export default function AdminApp({
   function put<K extends keyof AdminArtwork>(key: K, value: AdminArtwork[K]) {
     setEditing((a) => (a ? { ...a, [key]: value } : null));
   }
+  function remember(
+    saved: AdminArtwork,
+    desiredPublication = saved.publication,
+  ) {
+    setBaseline(saved);
+    setEditing({ ...saved, publication: desiredPublication });
+    setData((previous) =>
+      previous
+        ? {
+            ...previous,
+            artworks: [
+              ...previous.artworks.filter((a) => a.id !== saved.id),
+              saved,
+            ],
+          }
+        : previous,
+    );
+  }
   async function save(a: AdminArtwork) {
-    const saved = await api<AdminArtwork>("/api/admin/artworks", a);
-    setEditing(saved);
-    await refresh();
+    if (a.publication === "published" && !a.image && !pendingImage) {
+      showError(
+        "Ajoutez l’image du tableau avant de publier. Vous pouvez aussi l’enregistrer en brouillon.",
+      );
+      return;
+    }
+    const publication = a.publication;
+    let saved: AdminArtwork;
+    setProgress("Enregistrement de la fiche…");
+    // A new work needs a private draft before its first media upload.
+    saved = await api<AdminArtwork>("/api/admin/artworks", {
+      ...a,
+      publication: pendingImage && !a.image ? "draft" : publication,
+    });
+    remember(saved, publication);
+    setFormTouched(false);
+    if (pendingImage) {
+      try {
+        setProgress("Envoi de l’image…");
+        const token = await api<{ id: string; url: string }>(
+          "/api/admin/upload",
+          { artworkId: saved.id },
+        );
+        const response = await fetch(token.url, {
+          method: "PUT",
+          headers: {
+            "Content-Type": pendingImage.type || "application/octet-stream",
+          },
+          body: pendingImage,
+        });
+        if (!response.ok)
+          throw new Error(
+            "Envoi interrompu. Vérifiez votre connexion et réessayez.",
+          );
+        setProgress("Préparation de l’image…");
+        saved = await api<AdminArtwork>("/api/admin/process", { id: token.id });
+        remember(saved, publication);
+        setPendingImage(null);
+      } catch (error) {
+        throw new Error(
+          `La fiche est enregistrée${saved.publication === "draft" ? " en brouillon" : ""}, mais la nouvelle image n’a pas été enregistrée. ${error instanceof Error ? error.message : "Réessayez."}`,
+        );
+      }
+    }
+    if (saved.publication !== publication) {
+      setProgress("Publication de l’œuvre…");
+      saved = await api<AdminArtwork>("/api/admin/artworks", {
+        ...saved,
+        publication,
+      });
+      remember(saved);
+    }
+    setFormTouched(false);
     setMessage(
       saved.publication === "published"
-        ? `Enregistré · ${saved.collection || "Sans collection"} · position ${saved.order + 1}. L’œuvre reste visible dans la galerie.`
-        : "Modifications enregistrées.",
+        ? "Œuvre enregistrée et visible dans la galerie."
+        : saved.publication === "archived"
+          ? "Œuvre archivée et retirée de la galerie."
+          : "Brouillon enregistré. Visible uniquement dans votre atelier.",
     );
-    return saved;
-  }
-  async function upload(file: File) {
-    if (!editing) return;
-    if (file.size > 20 * 1024 * 1024)
-      throw new Error("L’image dépasse 20 Mio.");
-    let current = editing;
-    if (!current.title.trim())
-      throw new Error("Renseignez le titre avant d’ajouter une image.");
-    current = await save(current);
-    const token = await api<{ id: string; url: string; demo: boolean }>(
-      "/api/admin/upload",
-      { artworkId: current.id },
-    );
-    const res = await fetch(token.url, {
-      method: "PUT",
-      headers: { "Content-Type": file.type || "application/octet-stream" },
-      body: file,
-    });
-    if (!res.ok)
-      throw new Error("Téléversement interrompu. Vous pouvez réessayer.");
-    const saved = await api<AdminArtwork>("/api/admin/process", {
-      id: token.id,
-    });
-    setEditing(saved);
-    await refresh();
-    setMessage("Image traitée : miniature, vue de salle et détail prêts.");
+    try {
+      await refresh();
+    } catch {
+      setMessage(
+        "Enregistrement réussi. La liste n’a pas pu être actualisée ; rechargez-la lorsque la connexion revient.",
+      );
+    }
   }
   return (
     <main className="admin-shell">
       {data && creatingCollection && (
         <CollectionCreator
           rooms={data.rooms}
+          collections={groups.map(({ name, roomId }) => ({ name, roomId }))}
+          capacity={roomCapacity}
+          onAddRoom={() =>
+            perform(async () => {
+              const { id } = await api<{ id: string }>("/api/admin/rooms");
+              setData((previous) =>
+                previous
+                  ? { ...previous, rooms: [...previous.rooms, id] }
+                  : previous,
+              );
+            })
+          }
           initialRoom={editing?.roomId ?? data.rooms[0]}
           busy={busy}
           error={error}
@@ -221,8 +419,13 @@ export default function AdminApp({
           }
         />
       )}
-      <aside className="admin-sidebar">
-        <Link href="/" className="admin-brand">
+      <aside className="admin-sidebar" aria-label="Navigation de l’atelier">
+        <Link
+          href="/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="admin-brand"
+        >
           <span>G</span> L’atelier
         </Link>
         <p className="admin-overline">ESPACE ARTISTE</p>
@@ -230,20 +433,26 @@ export default function AdminApp({
           <nav>
             <button
               className={tab === "artworks" ? "active" : ""}
-              onClick={() => {
-                setTab("artworks");
-                setEditing(null);
-              }}
+              disabled={busy || Boolean(roomEditing)}
+              onClick={() =>
+                leave(() => {
+                  setTab("artworks");
+                  setEditing(null);
+                })
+              }
             >
               <Paintbrush size={18} />
               Les œuvres
             </button>
             <button
               className={tab === "settings" ? "active" : ""}
-              onClick={() => {
-                setTab("settings");
-                setEditing(null);
-              }}
+              disabled={busy || Boolean(roomEditing)}
+              onClick={() =>
+                leave(() => {
+                  setTab("settings");
+                  setEditing(null);
+                })
+              }
             >
               <Settings size={18} />
               Textes & contact
@@ -257,11 +466,15 @@ export default function AdminApp({
           </Link>
           {data && (
             <button
+              disabled={busy || Boolean(roomEditing)}
               onClick={() =>
-                perform(async () => {
-                  await api("/api/admin/logout");
-                  setData(null);
-                  setEditing(null);
+                leave(() => {
+                  void perform(async () => {
+                    await api("/api/admin/logout");
+                    setData(null);
+                    setEditing(null);
+                    setTab("artworks");
+                  });
                 })
               }
             >
@@ -272,6 +485,7 @@ export default function AdminApp({
         </div>
       </aside>
       <div className="admin-main">
+        {data && (singleAdmin || demo) && <ArrivalRefresh />}
         {demo && (
           <div className="admin-demo">
             Démonstration locale · Les modifications sont conservées sur cet
@@ -279,12 +493,12 @@ export default function AdminApp({
           </div>
         )}
         <div className="admin-notices" aria-live="polite">
-          {error && !editing && (
+          {error && !editing && tab !== "settings" && !creatingCollection && (
             <div className="admin-error" role="alert">
               {error}
             </div>
           )}
-          {message && !editing && (
+          {message && !editing && tab !== "settings" && (
             <div className="admin-success">
               <Check size={17} />
               {message}
@@ -375,14 +589,49 @@ export default function AdminApp({
               </small>
             )}
           </section>
+        ) : roomEditing ? (
+          <RoomLayoutEditor
+            key={roomEditing}
+            roomId={roomEditing}
+            rooms={data.rooms}
+            onClose={(applied) => {
+              setRoomEditing(null);
+              setError("");
+              setMessage(
+                applied
+                  ? "La nouvelle disposition de la salle est enregistrée et visible dans la galerie."
+                  : "",
+              );
+              void refresh().catch(() =>
+                setError(
+                  "La liste n’a pas pu être actualisée. Rechargez l’atelier ; vos enregistrements sont conservés.",
+                ),
+              );
+            }}
+          />
         ) : tab === "settings" ? (
           <SettingsEditor
             settings={data.settings}
             busy={busy}
+            error={error}
+            message={message}
+            dirty={settingsDirty}
+            onDirty={() => {
+              setSettingsDirty(true);
+              setMessage("");
+              setError("");
+            }}
+            validateForm={validateForm}
             onSave={(settings) =>
               perform(async () => {
-                await api("/api/admin/settings", settings);
-                await refresh();
+                const saved = await api<SiteSettings>(
+                  "/api/admin/settings",
+                  settings,
+                );
+                setData((previous) =>
+                  previous ? { ...previous, settings: saved } : previous,
+                );
+                setSettingsDirty(false);
                 setMessage("Textes et contact mis à jour.");
               })
             }
@@ -393,11 +642,8 @@ export default function AdminApp({
               <div>
                 <button
                   className="admin-back"
-                  onClick={() => {
-                    setEditing(null);
-                    setMessage("");
-                    setError("");
-                  }}
+                  disabled={busy}
+                  onClick={() => leave(() => setEditing(null))}
                 >
                   <ArrowLeft size={16} />
                   Toutes les œuvres
@@ -406,451 +652,515 @@ export default function AdminApp({
                   {editing.revision ? "Modifier l’œuvre" : "Une nouvelle œuvre"}
                 </h1>
               </div>
-              <span className={`admin-badge ${editing.publication}`}>
-                {publications[editing.publication]}
+              <span
+                className={`admin-badge ${baseline?.publication || "draft"}`}
+              >
+                {editing.revision
+                  ? publications[baseline?.publication || "draft"]
+                  : "Nouvelle fiche"}
               </span>
             </header>
             <form
               noValidate
+              onInput={() => {
+                setFormTouched(true);
+                setMessage("");
+                setError("");
+              }}
               onSubmit={(e) => {
                 e.preventDefault();
-                const invalid = e.currentTarget.querySelector<HTMLInputElement>(
-                  "input:invalid, select:invalid, textarea:invalid",
-                );
-                if (invalid) {
-                  const label =
-                    invalid.labels?.[0]?.textContent?.trim() || "Champ";
-                  setMessage("");
-                  setError(`${label} : ${invalid.validationMessage}`);
-                  invalid.focus();
-                  return;
-                }
-                perform(() => save(editing).then(() => {}));
+                if (!validateForm(e.currentTarget)) return;
+                void perform(() => save(editing));
               }}
             >
-              <div className="admin-editor">
-                <div className="admin-fields">
-                  <section className="admin-card">
-                    <h2>L’œuvre</h2>
-                    <label>
-                      Titre
-                      <input
-                        required
-                        maxLength={200}
-                        value={editing.title}
-                        onChange={(e) => put("title", e.target.value)}
-                      />
-                    </label>
-                    <label>
-                      Identifiant du lien
-                      <input
-                        required
-                        pattern="[a-z0-9]+(-[a-z0-9]+)*"
-                        value={editing.slug}
-                        onChange={(e) => put("slug", e.target.value)}
-                      />
-                      <small>Lettres minuscules, chiffres et tirets.</small>
-                    </label>
-                    <label>
-                      Description
-                      <textarea
-                        rows={4}
-                        value={editing.description}
-                        onChange={(e) => put("description", e.target.value)}
-                      />
-                    </label>
-                    <div className="admin-two">
-                      <label>
-                        Technique <small>facultatif</small>
-                        <input
-                          value={editing.technique || ""}
-                          onChange={(e) =>
-                            put("technique", e.target.value || null)
-                          }
-                        />
-                      </label>
-                      <label>
-                        Année <small>facultatif</small>
-                        <input
-                          type="number"
-                          min={1000}
-                          max={2200}
-                          value={editing.year || ""}
-                          onChange={(e) =>
-                            put(
-                              "year",
-                              e.target.value ? Number(e.target.value) : null,
-                            )
-                          }
-                        />
-                      </label>
-                    </div>
-                    <div className="admin-two">
-                      <label>
-                        Largeur (cm)
-                        <input
-                          type="number"
-                          min="0.1"
-                          step="0.1"
-                          value={editing.widthCm || ""}
-                          onChange={(e) =>
-                            put(
-                              "widthCm",
-                              e.target.value ? Number(e.target.value) : null,
-                            )
-                          }
-                        />
-                      </label>
-                      <label>
-                        Hauteur (cm)
-                        <input
-                          type="number"
-                          min="0.1"
-                          step="0.1"
-                          value={editing.heightCm || ""}
-                          onChange={(e) =>
-                            put(
-                              "heightCm",
-                              e.target.value ? Number(e.target.value) : null,
-                            )
-                          }
-                        />
-                      </label>
-                    </div>
-                    <small>
-                      Laissez vides les informations inconnues. L’échelle
-                      d’exposition sera illustrative.
-                    </small>
-                  </section>
-                  <section className="admin-card">
-                    <h2>Vente & prix</h2>
-                    <p className="admin-sale-explanation">
-                      Le statut de vente et la publication sont indépendants.
-                      Une œuvre vendue peut rester exposée et consultable.
-                    </p>
-                    {editing.availability === "sold" && (
-                      <p className="admin-sale-status" role="status">
-                        <strong>Vendue</strong> ·{" "}
-                        {editing.publication === "published"
-                          ? "Elle reste dans la galerie, avec une présentation atténuée et la mention VENDUE."
-                          : "Publiez-la si vous souhaitez la conserver dans la galerie, avec la mention VENDUE."}
+              <fieldset
+                className="admin-editor-controls"
+                disabled={busy}
+                aria-busy={busy}
+              >
+                <div className="admin-editor">
+                  <aside
+                    className="admin-preview"
+                    aria-label="Image et aperçu de l’œuvre"
+                  >
+                    <ArtworkImage
+                      key={editing.id}
+                      artwork={editing}
+                      file={pendingImage}
+                      preview={imagePreview}
+                      busy={busy}
+                      onFile={(file) => {
+                        setPendingImage(file);
+                        setError("");
+                        setMessage("");
+                      }}
+                      onAlt={(alt) => put("alt", alt)}
+                      onError={showError}
+                      onChecking={setImageChecking}
+                    />
+                    <section className="admin-card admin-preview-card">
+                      <p className="admin-overline">APERÇU DE LA FICHE</p>
+                      <h2>{editing.title || "Titre de votre œuvre"}</h2>
+                      <p>
+                        {[editing.technique, editing.year]
+                          .filter(Boolean)
+                          .join(" · ")}
                       </p>
-                    )}
-                    <div className="admin-two">
+                      <p>
+                        {editing.priceVisibility === "public" &&
+                        editing.priceMinor !== null
+                          ? new Intl.NumberFormat("fr-FR", {
+                              style: "currency",
+                              currency: editing.currency,
+                            }).format(editing.priceMinor / 100)
+                          : "Prix sur demande"}
+                      </p>
+                      <span>{availability[editing.availability]}</span>
+                    </section>
+                  </aside>
+                  <div className="admin-fields">
+                    <section className="admin-card">
+                      <h2>L’œuvre</h2>
                       <label>
-                        Affichage du prix
-                        <select
-                          value={editing.priceVisibility}
-                          onChange={(e) =>
-                            put(
-                              "priceVisibility",
-                              e.target.value as AdminArtwork["priceVisibility"],
-                            )
-                          }
-                        >
-                          <option value="on_request">Prix sur demande</option>
-                          <option value="public">Afficher le prix</option>
-                        </select>
+                        Titre
+                        <input
+                          required
+                          maxLength={200}
+                          value={editing.title}
+                          onChange={(e) => put("title", e.target.value)}
+                        />
                       </label>
+                      <details className="admin-link-options">
+                        <summary>Personnaliser le lien de l’œuvre</summary>
+                        <label>
+                          Identifiant du lien
+                          <input
+                            required
+                            maxLength={120}
+                            pattern="[a-z0-9]+(-[a-z0-9]+)*"
+                            value={editing.slug}
+                            onChange={(e) => put("slug", e.target.value)}
+                          />
+                          <small>
+                            Lettres minuscules, chiffres et tirets. Modifier ce
+                            lien rend l’ancienne adresse indisponible.
+                          </small>
+                        </label>
+                      </details>
                       <label>
-                        Disponibilité
+                        Description
+                        <textarea
+                          rows={4}
+                          maxLength={6000}
+                          value={editing.description}
+                          onChange={(e) => put("description", e.target.value)}
+                        />
+                      </label>
+                      <div className="admin-two">
+                        <label>
+                          Technique <small>facultatif</small>
+                          <input
+                            maxLength={200}
+                            value={editing.technique || ""}
+                            onChange={(e) =>
+                              put("technique", e.target.value || null)
+                            }
+                          />
+                        </label>
+                        <label>
+                          Année <small>facultatif</small>
+                          <input
+                            type="number"
+                            min={1000}
+                            max={2200}
+                            value={editing.year || ""}
+                            onChange={(e) =>
+                              put(
+                                "year",
+                                e.target.value ? Number(e.target.value) : null,
+                              )
+                            }
+                          />
+                        </label>
+                      </div>
+                      <div className="admin-two">
+                        <label>
+                          Largeur réelle (cm)
+                          <input
+                            type="number"
+                            min="0.1"
+                            step="any"
+                            max={100000}
+                            value={editing.widthCm || ""}
+                            onChange={(e) =>
+                              put(
+                                "widthCm",
+                                e.target.value ? Number(e.target.value) : null,
+                              )
+                            }
+                          />
+                        </label>
+                        <label>
+                          Hauteur réelle (cm)
+                          <input
+                            type="number"
+                            min="0.1"
+                            step="any"
+                            max={100000}
+                            value={editing.heightCm || ""}
+                            onChange={(e) =>
+                              put(
+                                "heightCm",
+                                e.target.value ? Number(e.target.value) : null,
+                              )
+                            }
+                          />
+                        </label>
+                      </div>
+                      <small>
+                        Dimensions affichées dans la description. Elles ne
+                        changent pas la taille dans le showroom, réglable dans «
+                        Collection & accrochage ». Laissez vides les
+                        informations inconnues.
+                      </small>
+                    </section>
+                    <details
+                      className="admin-card admin-section"
+                      data-section="sale"
+                    >
+                      <summary>
+                        <span>Vente & prix</span>
+                        <small>
+                          {availability[editing.availability]} ·{" "}
+                          {editing.priceVisibility === "public"
+                            ? "Prix affiché"
+                            : "Prix sur demande"}
+                        </small>
+                      </summary>
+                      <p className="admin-sale-explanation">
+                        Le statut de vente et la publication sont indépendants.
+                        Une œuvre vendue peut rester exposée et consultable.
+                      </p>
+                      {editing.availability === "sold" && (
+                        <p className="admin-sale-status" role="status">
+                          <strong>Vendue</strong> ·{" "}
+                          {editing.publication === "published"
+                            ? "Elle reste dans la galerie, avec une présentation atténuée et la mention VENDUE."
+                            : "Publiez-la si vous souhaitez la conserver dans la galerie, avec la mention VENDUE."}
+                        </p>
+                      )}
+                      <div className="admin-two">
+                        <label>
+                          Affichage du prix
+                          <select
+                            value={editing.priceVisibility}
+                            onChange={(e) =>
+                              put(
+                                "priceVisibility",
+                                e.target
+                                  .value as AdminArtwork["priceVisibility"],
+                              )
+                            }
+                          >
+                            <option value="on_request">Prix sur demande</option>
+                            <option value="public">Afficher le prix</option>
+                          </select>
+                        </label>
+                        <label>
+                          Disponibilité
+                          <select
+                            value={editing.availability}
+                            onChange={(e) =>
+                              put(
+                                "availability",
+                                e.target.value as AdminArtwork["availability"],
+                              )
+                            }
+                          >
+                            {Object.entries(availability).map(
+                              ([key, label]) => (
+                                <option key={key} value={key}>
+                                  {label}
+                                </option>
+                              ),
+                            )}
+                          </select>
+                        </label>
+                      </div>
+                      <div className="admin-two">
+                        <label>
+                          Prix{" "}
+                          {editing.priceVisibility === "on_request" && (
+                            <small>interne, jamais public</small>
+                          )}
+                          <PriceInput
+                            key={editing.id}
+                            artwork={editing}
+                            onChange={(value) => put("priceMinor", value)}
+                          />
+                        </label>
+                        <label>
+                          Devise
+                          <select
+                            value={editing.currency}
+                            onChange={(e) =>
+                              put(
+                                "currency",
+                                e.target.value as AdminArtwork["currency"],
+                              )
+                            }
+                          >
+                            <option>EUR</option>
+                            <option>CHF</option>
+                            <option>USD</option>
+                          </select>
+                        </label>
+                      </div>
+                    </details>
+                    <details
+                      className="admin-card admin-section"
+                      data-section="placement"
+                    >
+                      <summary>
+                        <span>Collection & accrochage</span>
+                        <small>
+                          {editing.collection || "Sans collection"} · Salle{" "}
+                          {editing.roomId.replace("room-", "")} ·{" "}
+                          {placementReference(editing)}
+                        </small>
+                      </summary>
+                      <label>
+                        Collection
                         <select
-                          value={editing.availability}
-                          onChange={(e) =>
-                            put(
-                              "availability",
-                              e.target.value as AdminArtwork["availability"],
-                            )
-                          }
+                          value={editing.collection}
+                          onChange={(e) => {
+                            setEditing(
+                              moveToCollection(
+                                editing,
+                                e.target.value,
+                                data.artworks,
+                                data.settings.collectionRooms,
+                              ),
+                            );
+                            setError("");
+                            setMessage("");
+                          }}
                         >
-                          {Object.entries(availability).map(([key, label]) => (
-                            <option key={key} value={key}>
-                              {label}
+                          {!groups.some(
+                            (g) => g.name === editing.collection,
+                          ) && (
+                            <option value={editing.collection}>
+                              {editing.collection || "Sans collection"}
+                            </option>
+                          )}
+                          {groups.map((g) => (
+                            <option key={g.name} value={g.name}>
+                              {g.name || "Sans collection"} · Salle{" "}
+                              {g.roomId.replace("room-", "")}
                             </option>
                           ))}
                         </select>
                       </label>
-                    </div>
-                    <div className="admin-two">
-                      <label>
-                        Prix{" "}
-                        {editing.priceVisibility === "on_request" && (
-                          <small>interne, jamais public</small>
-                        )}
-                        <input
-                          type="number"
-                          min={0}
-                          step="0.01"
-                          required={editing.priceVisibility === "public"}
-                          value={
-                            editing.priceMinor === null
-                              ? ""
-                              : editing.priceMinor / 100
-                          }
-                          onChange={(e) =>
-                            put(
-                              "priceMinor",
-                              e.target.value
-                                ? Math.round(Number(e.target.value) * 100)
-                                : null,
-                            )
-                          }
-                        />
-                      </label>
-                      <label>
-                        Devise
-                        <select
-                          value={editing.currency}
-                          onChange={(e) =>
-                            put(
-                              "currency",
-                              e.target.value as AdminArtwork["currency"],
-                            )
-                          }
-                        >
-                          <option>EUR</option>
-                          <option>CHF</option>
-                          <option>USD</option>
-                        </select>
-                      </label>
-                    </div>
-                  </section>
-                  <section className="admin-card">
-                    <h2>Collection & accrochage</h2>
-                    <label>
-                      Collection
-                      <select
-                        value={editing.collection}
-                        onChange={(e) => {
-                          setEditing(
-                            moveToCollection(
-                              editing,
-                              e.target.value,
-                              data.artworks,
-                              data.settings.collectionRooms,
-                            ),
-                          );
-                          setError("");
-                          setMessage("");
-                        }}
-                      >
-                        {!groups.some((g) => g.name === editing.collection) && (
-                          <option value={editing.collection}>
-                            {editing.collection || "Sans collection"}
-                          </option>
-                        )}
-                        {groups.map((g) => (
-                          <option key={g.name} value={g.name}>
-                            {g.name || "Sans collection"} · Salle{" "}
-                            {g.roomId.replace("room-", "")}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <button
-                      type="button"
-                      className="admin-text-button"
-                      onClick={() => {
-                        setError("");
-                        setCreatingCollection(true);
-                      }}
-                    >
-                      + Créer une collection
-                    </button>
-                    <p className="admin-help">
-                      Changer de collection déplace le tableau dans sa salle.
-                      Une place libre adaptée est proposée automatiquement, puis
-                      vous pouvez l’ajuster.
-                    </p>
-                    <label>
-                      Position dans la collection
-                      <select
-                        value={editing.order}
-                        onChange={(e) => put("order", Number(e.target.value))}
-                      >
-                        {Array.from(
-                          {
-                            length:
-                              data.artworks.filter(
-                                (a) =>
-                                  a.id !== editing.id &&
-                                  collectionKey(a.collection) ===
-                                    collectionKey(editing.collection),
-                              ).length + 1,
-                          },
-                          (_, i) => (
-                            <option key={i} value={i}>
-                              {i + 1}
-                              {i === 0 ? " · Première œuvre" : ""}
-                            </option>
-                          ),
-                        )}
-                      </select>
-                      <small>
-                        L’ordre recommence à 1 dans chaque collection. Les
-                        autres œuvres se décalent automatiquement.
-                      </small>
-                    </label>
-                    <h3>Emplacement sur le mur</h3>
-                    <PlacementEditor
-                      key={editing.id}
-                      artwork={editing}
-                      artworks={data.artworks}
-                      rooms={data.rooms}
-                      collectionRooms={data.settings.collectionRooms}
-                      onChange={setEditing}
-                    />
-                    <div className="admin-two">
-                      <label>
-                        Cadre
-                        <select
-                          value={editing.frameStyle}
-                          onChange={(e) =>
-                            put(
-                              "frameStyle",
-                              e.target.value as AdminArtwork["frameStyle"],
-                            )
-                          }
-                        >
-                          <option value="brass">Laiton fin</option>
-                          <option value="oak">Chêne clair</option>
-                          <option value="white">Blanc mat</option>
-                        </select>
-                      </label>
-                    </div>
-                  </section>
-                </div>
-                <aside className="admin-preview">
-                  <section className="admin-card">
-                    <h2>Image principale</h2>
-                    <div className="admin-image-preview">
-                      {editing.image ? (
-                        <img
-                          src={editing.detailImage || editing.image}
-                          alt={editing.alt || "Aperçu du tableau"}
-                        />
-                      ) : (
-                        <div>
-                          <ImagePlus size={40} />
-                          <p>Votre tableau prendra place ici</p>
-                        </div>
-                      )}
-                    </div>
-                    <label className="admin-upload">
-                      <ImagePlus size={18} />
-                      {editing.image
-                        ? "Remplacer l’image"
-                        : "Choisir une image"}
-                      <input
-                        type="file"
-                        accept="image/jpeg,image/png,image/webp,image/avif"
-                        disabled={busy}
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) perform(() => upload(file));
-                          e.target.value = "";
-                        }}
-                      />
-                    </label>
-                    <small>
-                      JPEG, PNG, WebP, AVIF · 20 Mio maximum.
-                      <br />
-                      L’original reste privé, les proportions sont conservées.
-                    </small>
-                    <label>
-                      Texte alternatif
-                      <input
-                        value={editing.alt}
-                        onChange={(e) => put("alt", e.target.value)}
-                        placeholder="Décrivez brièvement ce que l’on voit"
-                        required={editing.publication === "published"}
-                      />
-                    </label>
-                  </section>
-                  <section className="admin-card admin-preview-card">
-                    <p className="admin-overline">APERÇU DE LA FICHE</p>
-                    <h2>{editing.title || "Titre de votre œuvre"}</h2>
-                    <p>
-                      {[editing.technique, editing.year]
-                        .filter(Boolean)
-                        .join(" · ")}
-                    </p>
-                    <p>
-                      {editing.priceVisibility === "public" &&
-                      editing.priceMinor !== null
-                        ? new Intl.NumberFormat("fr-FR", {
-                            style: "currency",
-                            currency: editing.currency,
-                          }).format(editing.priceMinor / 100)
-                        : "Prix sur demande"}
-                    </p>
-                    <span>{availability[editing.availability]}</span>
-                  </section>
-                </aside>
-              </div>
-              <footer className="admin-savebar">
-                {(error || message) && (
-                  <div
-                    className={`admin-save-feedback ${error ? "is-error" : "is-success"}`}
-                    role={error ? "alert" : "status"}
-                  >
-                    {error || message}
-                    {error.includes("modifiée") && (
                       <button
                         type="button"
                         className="admin-text-button"
-                        onClick={() =>
-                          perform(async () => {
-                            const fresh = await api<Data>(
-                              "/api/admin/artworks",
-                              undefined,
-                              "GET",
-                            );
-                            setData(fresh);
-                            setEditing(
-                              fresh.artworks.find((a) => a.id === editing.id) ??
-                                null,
-                            );
-                            setMessage(
-                              "Version enregistrée rechargée. Vous pouvez reprendre votre modification.",
-                            );
-                          })
-                        }
+                        onClick={() => {
+                          setError("");
+                          setCreatingCollection(true);
+                        }}
                       >
-                        Recharger la version enregistrée
+                        + Créer une collection
                       </button>
-                    )}
+                      <p className="admin-help">
+                        Changer de collection déplace le tableau dans sa salle.
+                        Une place libre adaptée est proposée automatiquement,
+                        puis vous pouvez l’ajuster.
+                      </p>
+                      <label>
+                        Position dans la collection
+                        <select
+                          value={editing.order}
+                          onChange={(e) => put("order", Number(e.target.value))}
+                        >
+                          {Array.from(
+                            {
+                              length:
+                                data.artworks.filter(
+                                  (a) =>
+                                    a.id !== editing.id &&
+                                    collectionKey(a.collection) ===
+                                      collectionKey(editing.collection),
+                                ).length + 1,
+                            },
+                            (_, i) => (
+                              <option key={i} value={i}>
+                                {i + 1}
+                                {i === 0 ? " · Première œuvre" : ""}
+                              </option>
+                            ),
+                          )}
+                        </select>
+                        <small>
+                          L’ordre recommence à 1 dans chaque collection. Les
+                          autres œuvres se décalent automatiquement dans la
+                          liste. Cela ne change pas leur place sur le mur.
+                        </small>
+                      </label>
+                      <h3>Emplacement sur le mur</h3>
+                      <PlacementEditor
+                        key={editing.id}
+                        artwork={editing}
+                        artworks={data.artworks}
+                        rooms={data.rooms}
+                        collectionRooms={data.settings.collectionRooms}
+                        onChange={(value) => {
+                          if (!operation.current) {
+                            setEditing(value);
+                            setMessage("");
+                            setError("");
+                          }
+                        }}
+                      />
+                      <div className="admin-two">
+                        <label>
+                          Cadre
+                          <select
+                            value={editing.frameStyle}
+                            onChange={(e) =>
+                              put(
+                                "frameStyle",
+                                e.target.value as AdminArtwork["frameStyle"],
+                              )
+                            }
+                          >
+                            <option value="brass">Laiton fin</option>
+                            <option value="oak">Chêne clair</option>
+                            <option value="white">Blanc mat</option>
+                          </select>
+                        </label>
+                      </div>
+                    </details>
+                    <section className="admin-card admin-publication">
+                      <label>
+                        Publication
+                        <select
+                          value={editing.publication}
+                          onChange={(e) =>
+                            put(
+                              "publication",
+                              e.target.value as AdminArtwork["publication"],
+                            )
+                          }
+                        >
+                          <option value="draft">
+                            Brouillon · visible par vous seulement
+                          </option>
+                          <option value="published">
+                            Publiée · visible dans la galerie
+                          </option>
+                          <option value="archived">
+                            Archivée · retirée de la galerie
+                          </option>
+                        </select>
+                      </label>
+                      <p className="admin-help">
+                        Le choix prend effet lorsque vous enregistrez. Une œuvre
+                        vendue peut rester publiée.
+                      </p>
+                      {roomCapacity(editing.roomId).free === 0 &&
+                        baseline?.publication !== "published" && (
+                          <div className="admin-placement-warning">
+                            <strong>Cette salle est complète.</strong>
+                            <p>
+                              Enregistrez votre brouillon, libérez une place en
+                              retirant une œuvre exposée, ou choisissez une
+                              collection dans une autre salle.
+                            </p>
+                            <button
+                              type="button"
+                              className="admin-text-button"
+                              onClick={() => {
+                                setError("");
+                                setCreatingCollection(true);
+                              }}
+                            >
+                              Créer une collection dans une autre salle
+                            </button>
+                          </div>
+                        )}
+                    </section>
                   </div>
-                )}
-                <div>
-                  <label>
-                    Publication
-                    <select
-                      value={editing.publication}
-                      onChange={(e) =>
-                        put(
-                          "publication",
-                          e.target.value as AdminArtwork["publication"],
-                        )
-                      }
-                    >
-                      <option value="draft">
-                        Brouillon · visible par vous seulement
-                      </option>
-                      <option value="published">
-                        Publiée · visible dans la galerie
-                      </option>
-                      <option value="archived">
-                        Archivée · retirée de la galerie
-                      </option>
-                    </select>
-                  </label>
                 </div>
-                <button className="admin-primary" disabled={busy}>
-                  <Save size={17} />
-                  {busy ? "Enregistrement…" : "Enregistrer les modifications"}
-                </button>
-              </footer>
+                <footer className="admin-savebar">
+                  {(error || message) && (
+                    <div
+                      className={`admin-save-feedback ${error ? "is-error" : "is-success"}`}
+                      role={error ? "alert" : "status"}
+                    >
+                      {error || message}
+                      {error.includes("session a expiré") && (
+                        <a
+                          className="admin-text-button"
+                          href="/admin"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          Se reconnecter dans un autre onglet
+                        </a>
+                      )}
+                      {error.includes("modifiée") && (
+                        <button
+                          type="button"
+                          className="admin-text-button"
+                          onClick={() => {
+                            if (
+                              !window.confirm(
+                                "Recharger remplacera vos saisies par la dernière version enregistrée. Continuer ?",
+                              )
+                            )
+                              return;
+                            void perform(async () => {
+                              const fresh = await api<Data>(
+                                "/api/admin/artworks",
+                                undefined,
+                                "GET",
+                              );
+                              setData(fresh);
+                              const latest = fresh.artworks.find(
+                                (a) => a.id === editing.id,
+                              );
+                              if (latest) openArtwork(latest);
+                              setMessage(
+                                "Version enregistrée rechargée. Vous pouvez reprendre votre modification.",
+                              );
+                            });
+                          }}
+                        >
+                          Recharger la version enregistrée
+                        </button>
+                      )}
+                    </div>
+                  )}
+                  <span className="admin-dirty-state" role="status">
+                    {imageChecking
+                      ? "Vérification de l’image…"
+                      : busy
+                        ? progress
+                        : dirty
+                          ? "Modifications non enregistrées"
+                          : editing.revision
+                            ? "Tout est enregistré"
+                            : "Nouvelle œuvre · brouillon"}
+                  </span>
+                  <button
+                    className="admin-primary"
+                    disabled={busy || imageChecking}
+                  >
+                    <Save size={17} />
+                    {busy ? "Enregistrement…" : "Enregistrer les modifications"}
+                  </button>
+                </footer>
+              </fieldset>
             </form>
           </>
         ) : (
@@ -880,6 +1190,34 @@ export default function AdminApp({
                 </button>
               </div>
             </header>
+            <div className="admin-capacity" aria-label="Capacité des salles">
+              {data.rooms.map((room) => {
+                const capacity = roomCapacity(room);
+                return (
+                  <div className="admin-room-entry" key={room}>
+                    <strong>Salle {room.replace("room-", "")}</strong> ·{" "}
+                    {capacity.total} zones · plusieurs tableaux par zone
+                    {(demo || singleAdmin) && (
+                      <button
+                        type="button"
+                        className="admin-secondary"
+                        onClick={() => {
+                          setError("");
+                          setMessage("");
+                          setRoomEditing(room);
+                          window.scrollTo({ top: 0 });
+                        }}
+                      >
+                        {data.roomLayoutDrafts?.[room]
+                          ? "Reprendre le brouillon"
+                          : "Réorganiser la salle"}{" "}
+                        {room.replace("room-", "")}
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
             <div className="admin-list-tools">
               <div className="admin-filters">
                 {[
@@ -891,9 +1229,16 @@ export default function AdminApp({
                   <button
                     key={key}
                     className={filter === key ? "selected" : ""}
+                    aria-pressed={filter === key}
                     onClick={() => setFilter(key)}
                   >
-                    {label}
+                    {label}{" "}
+                    <span className="admin-filter-count">
+                      {key === "all"
+                        ? data.artworks.length
+                        : data.artworks.filter((a) => a.publication === key)
+                            .length}
+                    </span>
                   </button>
                 ))}
               </div>
@@ -908,9 +1253,17 @@ export default function AdminApp({
               const visible = group.artworks.filter(
                 (a) =>
                   (filter === "all" || a.publication === filter) &&
-                  a.title
-                    .toLocaleLowerCase()
-                    .includes(search.toLocaleLowerCase()),
+                  `${a.title} ${a.collection}`
+                    .normalize("NFD")
+                    .replace(/[\u0300-\u036f]/g, "")
+                    .toLocaleLowerCase("fr")
+                    .includes(
+                      search
+                        .trim()
+                        .normalize("NFD")
+                        .replace(/[\u0300-\u036f]/g, "")
+                        .toLocaleLowerCase("fr"),
+                    ),
               );
               if (
                 !visible.length &&
@@ -930,11 +1283,22 @@ export default function AdminApp({
                       </p>
                       <h2>{group.name || "Sans collection"}</h2>
                     </div>
-                    <span>
-                      {group.artworks.length
-                        ? `${group.artworks.length} œuvres · ordre 1 à ${group.artworks.length}`
-                        : "Aucune œuvre pour le moment"}
-                    </span>
+                    <div className="admin-group-actions">
+                      <span>
+                        {group.artworks.length
+                          ? `${group.artworks.length} œuvres · ordre 1 à ${group.artworks.length}`
+                          : "Aucune œuvre pour le moment"}
+                      </span>
+                      {group.artworks.length > 0 && (
+                        <button
+                          className="admin-secondary"
+                          onClick={() => newArtwork(group.name, group.roomId)}
+                        >
+                          <Plus size={16} />
+                          Ajouter une œuvre à {group.name || "cette collection"}
+                        </button>
+                      )}
+                    </div>
                   </header>
                   {!group.artworks.length && (
                     <div className="admin-empty-collection">
@@ -955,17 +1319,13 @@ export default function AdminApp({
                       <button
                         className="admin-artwork-card"
                         key={a.id}
-                        onClick={() => {
-                          setEditing(a);
-                          setError("");
-                          setMessage("");
-                        }}
+                        onClick={() => openArtwork(a)}
                       >
                         <div
                           className={`admin-artwork-image ${a.availability === "sold" ? "is-sold" : ""}`}
                         >
                           {a.image ? (
-                            <img src={a.thumbnail} alt={a.alt} />
+                            <img src={a.thumbnail} alt="" loading="lazy" />
                           ) : (
                             <ImagePlus size={35} />
                           )}
@@ -992,6 +1352,9 @@ export default function AdminApp({
                               : "Prix sur demande"}
                             <span>{availability[a.availability]}</span>
                           </p>
+                          <span className="admin-artwork-location">
+                            {placementReference(a)}
+                          </span>
                         </div>
                       </button>
                     ))}
@@ -999,6 +1362,36 @@ export default function AdminApp({
                 </section>
               );
             })}
+            {data.artworks.length > 0 &&
+              !data.artworks.some(
+                (a) =>
+                  (filter === "all" || a.publication === filter) &&
+                  `${a.title} ${a.collection}`
+                    .normalize("NFD")
+                    .replace(/[\u0300-\u036f]/g, "")
+                    .toLocaleLowerCase("fr")
+                    .includes(
+                      search
+                        .trim()
+                        .normalize("NFD")
+                        .replace(/[\u0300-\u036f]/g, "")
+                        .toLocaleLowerCase("fr"),
+                    ),
+              ) && (
+                <section className="admin-empty" role="status">
+                  <h2>Aucune œuvre ne correspond</h2>
+                  <p>Essayez un autre titre ou une autre collection.</p>
+                  <button
+                    className="admin-secondary"
+                    onClick={() => {
+                      setSearch("");
+                      setFilter("all");
+                    }}
+                  >
+                    Réinitialiser les filtres
+                  </button>
+                </section>
+              )}
             {data.artworks.length === 0 && (
               <section className="admin-empty">
                 <Paintbrush size={40} />
@@ -1022,12 +1415,33 @@ function SettingsEditor({
   settings,
   busy,
   onSave,
+  error,
+  message,
+  dirty,
+  onDirty,
+  validateForm,
 }: {
   settings: SiteSettings;
   busy: boolean;
+  error: string;
+  message: string;
+  dirty: boolean;
+  onDirty: () => void;
+  validateForm: (form: HTMLFormElement) => boolean;
   onSave: (s: SiteSettings) => void;
 }) {
   const [draft, setDraft] = useState(settings);
+  useEffect(() => setDraft(settings), [settings]);
+  const limits: Record<string, number> = {
+    artistName: 100,
+    tagline: 200,
+    heroTitle: 200,
+    aboutTitle: 100,
+    aboutText: 10000,
+    contactTitle: 100,
+    contactText: 3000,
+    coursesText: 6000,
+  };
   const field = (
     key: Exclude<
       keyof SiteSettings,
@@ -1041,12 +1455,21 @@ function SettingsEditor({
       {multiline ? (
         <textarea
           rows={key === "aboutText" ? 8 : 3}
+          maxLength={limits[key]}
           value={draft[key] ?? ""}
           onChange={(e) => setDraft({ ...draft, [key]: e.target.value })}
         />
       ) : (
         <input
-          type={key === "email" ? "email" : "text"}
+          type={
+            key === "email" ? "email" : key === "instagramUrl" ? "url" : "text"
+          }
+          maxLength={limits[key]}
+          placeholder={
+            key === "instagramUrl"
+              ? "https://www.instagram.com/votre-compte/"
+              : undefined
+          }
           value={draft[key] ?? ""}
           onChange={(e) => setDraft({ ...draft, [key]: e.target.value })}
         />
@@ -1064,77 +1487,104 @@ function SettingsEditor({
       </header>
       <form
         className="admin-settings"
+        noValidate
+        onInput={onDirty}
+        onChange={onDirty}
         onSubmit={(e) => {
           e.preventDefault();
-          onSave(draft);
+          if (validateForm(e.currentTarget)) onSave(draft);
         }}
       >
-        <section className="admin-card">
-          <h2>Accueil</h2>
-          {field("artistName", "Nom de l’artiste")}
-          {field("tagline", "Accroche courte")}
-          {field("heroTitle", "Titre d’accueil", true)}
-        </section>
-        <section className="admin-card">
-          <h2>À propos</h2>
-          {field("aboutTitle", "Titre de la présentation")}
-          {field("aboutText", "Présentation", true)}
-          {field("coursesText", "Cours d’arts visuels", true)}
-        </section>
-        <section className="admin-card">
-          <h2>Contact</h2>
-          {field("contactTitle", "Titre du contact")}
-          {field("contactText", "Message d’accueil", true)}
-          {field("email", "Adresse email publique")}
-          {field("instagramUrl", "Lien Instagram")}
-          <small>
-            Laissez l’email vide tant que l’adresse n’est pas confirmée. Le
-            contact ouvre l’application de messagerie du visiteur.
-          </small>
-          <label>
-            Devise par défaut
-            <select
-              value={draft.currency}
-              onChange={(e) =>
-                setDraft({
-                  ...draft,
-                  currency: e.target.value as SiteSettings["currency"],
-                })
-              }
-            >
-              <option>EUR</option>
-              <option>CHF</option>
-              <option>USD</option>
-            </select>
-          </label>
-        </section>
-        <section className="admin-card">
-          <h2>Les collections</h2>
-          {Object.entries(draft.collectionDescriptions ?? {}).map(
-            ([name, text]) => (
-              <label key={name}>
-                {name}
-                <textarea
-                  rows={5}
-                  value={text}
-                  onChange={(e) =>
-                    setDraft({
-                      ...draft,
-                      collectionDescriptions: {
-                        ...draft.collectionDescriptions,
-                        [name]: e.target.value,
-                      },
-                    })
-                  }
-                />
-              </label>
-            ),
-          )}
-        </section>
-        <button className="admin-primary" disabled={busy}>
-          <Save size={17} />
-          {busy ? "Enregistrement…" : "Enregistrer les textes"}
-        </button>
+        <fieldset
+          className="admin-editor-controls admin-settings-fields"
+          disabled={busy}
+        >
+          <section className="admin-card">
+            <h2>Accueil</h2>
+            {field("artistName", "Nom de l’artiste")}
+            {field("tagline", "Accroche courte")}
+            {field("heroTitle", "Titre d’accueil", true)}
+          </section>
+          <section className="admin-card">
+            <h2>À propos</h2>
+            {field("aboutTitle", "Titre de la présentation")}
+            {field("aboutText", "Présentation", true)}
+            {field("coursesText", "Cours d’arts visuels", true)}
+          </section>
+          <section className="admin-card">
+            <h2>Contact</h2>
+            {field("contactTitle", "Titre du contact")}
+            {field("contactText", "Message d’accueil", true)}
+            {field("email", "Adresse email publique")}
+            {field("instagramUrl", "Lien Instagram")}
+            <small>
+              Laissez l’email vide tant que l’adresse n’est pas confirmée. Le
+              contact ouvre l’application de messagerie du visiteur.
+            </small>
+            <label>
+              Devise par défaut
+              <select
+                value={draft.currency}
+                onChange={(e) =>
+                  setDraft({
+                    ...draft,
+                    currency: e.target.value as SiteSettings["currency"],
+                  })
+                }
+              >
+                <option>EUR</option>
+                <option>CHF</option>
+                <option>USD</option>
+              </select>
+            </label>
+          </section>
+          <section className="admin-card">
+            <h2>Les collections</h2>
+            {Object.entries(draft.collectionDescriptions ?? {}).map(
+              ([name, text]) => (
+                <label key={name}>
+                  {name}
+                  <textarea
+                    rows={5}
+                    maxLength={6000}
+                    value={text}
+                    onChange={(e) =>
+                      setDraft({
+                        ...draft,
+                        collectionDescriptions: {
+                          ...draft.collectionDescriptions,
+                          [name]: e.target.value,
+                        },
+                      })
+                    }
+                  />
+                </label>
+              ),
+            )}
+          </section>
+          <footer className="admin-savebar">
+            {(error || message) && (
+              <div
+                className={`admin-save-feedback ${error ? "is-error" : "is-success"}`}
+                role={error ? "alert" : "status"}
+              >
+                {error || message}
+                {error.includes("session a expiré") && (
+                  <a href="/admin" target="_blank" rel="noopener noreferrer">
+                    Se reconnecter dans un autre onglet
+                  </a>
+                )}
+              </div>
+            )}
+            <span className="admin-dirty-state" role="status">
+              {dirty ? "Modifications non enregistrées" : "Tout est enregistré"}
+            </span>
+            <button className="admin-primary" disabled={busy}>
+              <Save size={17} />
+              {busy ? "Enregistrement…" : "Enregistrer les textes"}
+            </button>
+          </footer>
+        </fieldset>
       </form>
     </>
   );
@@ -1142,6 +1592,9 @@ function SettingsEditor({
 
 function CollectionCreator({
   rooms,
+  collections,
+  capacity,
+  onAddRoom,
   initialRoom,
   busy,
   error,
@@ -1149,6 +1602,9 @@ function CollectionCreator({
   onCreate,
 }: {
   rooms: string[];
+  collections: { name: string; roomId: string }[];
+  capacity: (room: string) => { total: number; free: number };
+  onAddRoom: () => Promise<void>;
   initialRoom: string;
   busy: boolean;
   error: string;
@@ -1156,8 +1612,20 @@ function CollectionCreator({
   onCreate: (name: string, roomId: string) => Promise<void>;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
+  const [room, setRoom] = useState(initialRoom);
+  const previousCount = useRef(rooms.length);
   useEffect(() => {
-    dialog.current?.showModal();
+    if (rooms.length > previousCount.current) setRoom(rooms[rooms.length - 1]);
+    previousCount.current = rooms.length;
+  }, [rooms]);
+  useEffect(() => {
+    const modal = dialog.current;
+    const trigger = document.activeElement as HTMLElement | null;
+    modal?.showModal();
+    return () => {
+      modal?.close();
+      trigger?.focus();
+    };
   }, []);
   return (
     <dialog
@@ -1190,27 +1658,52 @@ function CollectionCreator({
             <X size={20} />
           </button>
         </header>
-        <p>Choisissez son nom et la salle où ses œuvres seront exposées.</p>
+        <p>
+          Une collection regroupe vos tableaux. Choisissez la salle qui les
+          accueillera : plusieurs collections peuvent partager une salle.
+        </p>
         <label>
           Nom de la collection
           <input
             name="name"
+            disabled={busy}
             required
             maxLength={200}
             autoFocus
             placeholder="Ex. Lumières d’été"
           />
         </label>
-        <label>
-          Salle d’exposition
-          <select name="roomId" defaultValue={initialRoom} required>
-            {rooms.map((room) => (
-              <option key={room} value={room}>
-                Salle {room.replace("room-", "")}
-              </option>
-            ))}
-          </select>
-        </label>
+        <RoomOverview
+          rooms={rooms}
+          collections={collections}
+          capacity={capacity}
+          selected={room}
+          onSelect={setRoom}
+          disabled={busy}
+        />
+        <p className="admin-help">Chaque zone peut recevoir plusieurs tableaux. L’ajout dépend de l’espace libre et de leur taille.</p>
+        {rooms.length < 4 ? (
+          <button
+            type="button"
+            className="admin-secondary"
+            disabled={busy}
+            onClick={() => void onAddRoom()}
+          >
+            <Plus size={16} />
+            Activer une nouvelle salle
+          </button>
+        ) : (
+          <p className="admin-help">
+            Les quatre salles sont actives. Pour libérer une place, passez une
+            œuvre exposée en brouillon ou archivez-la.
+          </p>
+        )}
+        {rooms.length < 4 && (
+          <p className="admin-help">
+            L’activation ajoute une salle à la galerie. Jusqu’à quatre salles
+            sont disponibles.
+          </p>
+        )}
         <p className="admin-help">
           Vous pourrez ensuite y ajouter des œuvres. Les emplacements occupés
           restent protégés.

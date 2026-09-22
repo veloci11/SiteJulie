@@ -1,5 +1,14 @@
 "use client";
-import { useEffect, useMemo, useRef } from "react";
+import {
+  Component,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { useGLTF } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
 import {
@@ -9,6 +18,7 @@ import {
   TextureLoader,
   Vector3,
   type Texture,
+  type Group,
 } from "three";
 import type { Destination, PublicData } from "@/lib/data/types";
 import { getSlots, roomOffset } from "@/lib/museum/config";
@@ -18,19 +28,18 @@ import {
 } from "@/lib/museum/navigation";
 import { CameraDirector } from "./CameraDirector";
 import { ArtworkFrame } from "./ArtworkFrame";
+import { visibleCartels } from "@/lib/museum/cartels";
 import { MuseumLighting } from "./MuseumLighting";
 import { RenderQuality } from "./RenderQuality";
 import { architecturalMaterial } from "./bakedMaterials";
 import { useSurfaceDetails } from "./SurfaceDetails";
+import { CompanionPlants } from "./CompanionPlants";
 const HALL = "/museum/hall-daylight.glb";
 const SALON = "/museum/extension-contemporary.glb";
 const TERMINAL = "/museum/extension-terminal-contemporary.glb";
 const END_CAP = "/museum/end-cap-contemporary.glb";
-const FIG_READING = "/museum/fig-reading.glb";
-const FIG_CENTRAL = "/museum/fig-central.glb";
-// Start geometry alongside the paintings instead of behind their Suspense read.
-for (const path of [HALL, TERMINAL, FIG_READING, FIG_CENTRAL])
-  useGLTF.preload(path, "/museum/draco/");
+const FIG_READING = "/museum/fig-reading.glb?v=distinct-ficus-soil-3";
+const FIG_CENTRAL = "/museum/fig-central.glb?v=distinct-ficus-soil-3";
 interface TextureRecord {
   texture?: Texture;
   error?: Error;
@@ -119,6 +128,9 @@ export interface MuseumProps {
   onPointerMissed: () => void;
   onTourArtwork?: (artworkId: string | null) => void;
   onPixelRatio?: (ratio: number) => void;
+  /** Poster captures must include the rooms visible through the doorways. */
+  captureAllRooms?: boolean;
+  onRoomLoading?: (loading: boolean) => void;
 }
 function Architecture({
   roomId,
@@ -196,18 +208,19 @@ function RoomFigs({ roomId }: { roomId: string }) {
         object.material.name.includes("curved lamina")
       ) {
         const material = object.material.clone();
-        // A paler, less saturated underside on the same opaque leaf surface.
+        material.envMapIntensity = 0.32;
+        // A quiet underside variation, without flashing pale faces as we pass.
         material.onBeforeCompile = (shader) => {
           shader.fragmentShader = shader.fragmentShader.replace(
             "#include <color_fragment>",
             `#include <color_fragment>
             if (!gl_FrontFacing) {
               float leafLuma = dot(diffuseColor.rgb, vec3(0.2126, 0.7152, 0.0722));
-              diffuseColor.rgb = mix(diffuseColor.rgb, vec3(leafLuma), 0.18) * 1.18;
+              diffuseColor.rgb = mix(diffuseColor.rgb, vec3(leafLuma), 0.13) * 1.06;
             }`,
           );
         };
-        material.customProgramCacheKey = () => "fig-pale-underside-v1";
+        material.customProgramCacheKey = () => "ficus-muted-underside-v2";
         object.material = material;
       }
       const materials = Array.isArray(object.material)
@@ -238,50 +251,77 @@ function RoomFigs({ roomId }: { roomId: string }) {
     </group>
   );
 }
-export function MuseumScene(props: MuseumProps) {
-  const { data, destination, onReady, onArrive } = props;
-  const targetRoom = roomForDestination(destination, data);
-  // The current catalogue is ready before the first visit; changing room never suspends
-  // the active camera or removes the previously visible paintings.
-  const artworks = data.artworks;
+class RoomBoundary extends Component<
+  { children: ReactNode; onError: () => void },
+  { failed: boolean }
+> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  componentDidCatch(error: Error) {
+    console.error("Museum room:", error);
+    this.props.onError();
+  }
+  render() {
+    return this.state.failed ? null : this.props.children;
+  }
+}
+
+function RoomContent({
+  roomId,
+  version,
+  props,
+  onReady,
+  onError,
+}: {
+  roomId: string;
+  version: string;
+  props: MuseumProps;
+  onReady: (version: string) => void;
+  onError: () => void;
+}) {
+  const { data } = props;
+  const terminal = roomId === data.rooms.at(-1);
+  // Only this room's models compete with its paintings for network/decoder time.
+  useGLTF.preload(
+    roomId === "room-1" ? HALL : terminal ? TERMINAL : SALON,
+    "/museum/draco/",
+  );
+  useGLTF.preload(
+    roomId === "room-1" ? FIG_READING : FIG_CENTRAL,
+    "/museum/draco/",
+  );
+  if (data.rooms.length === 1) useGLTF.preload(END_CAP, "/museum/draco/");
+  const artworks = useMemo(
+    () => data.artworks.filter((a) => a.roomId === roomId),
+    [data, roomId],
+  );
   const textures = useArtworkTextures(artworks.map((a) => a.image));
-  const { invalidate, gl, scene, camera } = useThree();
-  const callbacks = useRef({ onReady, onArrive });
-  callbacks.current = { onReady, onArrive };
-  useMemo(() => {
-    validatePlacements(data);
-    for (const texture of textures) {
-      texture.colorSpace = SRGBColorSpace;
-      texture.anisotropy = gl.capabilities.getMaxAnisotropy();
-    }
-  }, [data, textures, gl]);
-  useEffect(() => {
-    scene.userData.room = targetRoom;
-  }, [scene, targetRoom]);
+  const cartels = useMemo(() => visibleCartels(artworks), [artworks]);
+  const group = useRef<Group>(null);
+  const { gl, camera, scene, invalidate } = useThree();
+  const failure = useRef(onError);
+  failure.current = onError;
   useEffect(() => {
     let active = true;
-    scene.userData.artworkCount = artworks.length;
-    const started = performance.now();
-    // Keep the main thread responsive while preparing both small room atlases.
+    const root = group.current!;
     const uploaded = new Set<Texture>();
-    scene.traverse((object) => {
+    for (const texture of textures)
+      texture.anisotropy = gl.capabilities.getMaxAnisotropy();
+    root.traverse((object) => {
       if (!(object instanceof Mesh)) return;
-      const materials = Array.isArray(object.material)
+      for (const material of Array.isArray(object.material)
         ? object.material
-        : [object.material];
-      for (const material of materials) {
-        for (const value of Object.values(material)) {
+        : [object.material])
+        for (const value of Object.values(material))
           if (
             value &&
             typeof value === "object" &&
             "isTexture" in value &&
-            value.isTexture &&
-            !uploaded.has(value as Texture)
-          ) {
+            value.isTexture
+          )
             uploaded.add(value as Texture);
-          }
-        }
-      }
     });
     const prepare = async () => {
       let slice = performance.now();
@@ -293,31 +333,175 @@ export function MuseumScene(props: MuseumProps) {
           slice = performance.now();
         }
       }
-      if (active) await gl.compileAsync(scene, camera);
+      if (active) await gl.compileAsync(root, camera, scene);
+      if (active) {
+        invalidate(3);
+        onReady(version);
+      }
     };
-    invalidate(2);
-    void prepare()
-      .then(() => {
-        if (active) {
-          invalidate(3);
-          gl.domElement.dataset.warmupMs = (
-            performance.now() - started
-          ).toFixed(1);
-          gl.domElement.dataset.rendererReady = "true";
-          performance.mark("museum-ready");
-          callbacks.current.onReady();
-        }
-      })
-      .catch((error) => {
-        console.error("Museum warmup:", error);
-        if (active) props.onError();
-      });
+    void prepare().catch((error) => {
+      console.error("Museum room warmup:", error);
+      if (active) failure.current();
+    });
     return () => {
       active = false;
     };
-    // onError is stable in MuseumShell; target changes only move the camera.
+    // version owns the room's resources and placements, not selection or camera state.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scene, gl, camera, data, artworks.length, invalidate]);
+  }, [version, gl, camera, scene, invalidate, onReady]);
+  return (
+    <group ref={group}>
+      <Architecture roomId={roomId} terminal={terminal} />
+      {data.rooms.length === 1 && <ClosedEnd roomId={roomId} />}
+      <RoomFigs roomId={roomId} />
+      <CompanionPlants roomId={roomId} />
+      {artworks.map((artwork, i) => (
+        <ArtworkFrame
+          key={artwork.id}
+          artwork={artwork}
+          texture={textures[i]}
+          selected={props.selectedArtworkId === artwork.id}
+          showCartel={cartels.has(artwork.id)}
+          onSelect={props.onSelect}
+        />
+      ))}
+    </group>
+  );
+}
+
+export function MuseumScene(props: MuseumProps) {
+  const { data, destination } = props;
+  const targetRoom = roomForDestination(destination, data);
+  const { gl, scene } = useThree();
+  const callbacks = useRef(props);
+  callbacks.current = props;
+  const started = useRef(performance.now());
+  const announced = useRef(false);
+  const [mounted, setMounted] = useState<string[]>([targetRoom]);
+  const [ready, setReady] = useState<Set<string>>(() => new Set());
+  const [failed, setFailed] = useState<Set<string>>(() => new Set());
+  const [committed, setCommitted] = useState<{
+    destination: Destination;
+    navigationId: number;
+  } | null>(null);
+  const versions = useMemo(() => {
+    validatePlacements(data);
+    return new Map(
+      data.rooms.map((room) => [
+        room,
+        JSON.stringify([
+          data.rooms,
+          data.artworks.filter((a) => a.roomId === room),
+        ]),
+      ]),
+    );
+  }, [data]);
+  // Every room crossed by the camera must be ready, including intermediate rooms.
+  const currentRoom = committed
+    ? roomForDestination(committed.destination, data)
+    : targetRoom;
+  const from = data.rooms.indexOf(currentRoom),
+    to = data.rooms.indexOf(targetRoom);
+  const required = data.rooms.slice(Math.min(from, to), Math.max(from, to) + 1);
+  const visibleRooms = data.rooms.filter(
+    (room) =>
+      mounted.includes(room) ||
+      required.includes(room) ||
+      props.captureAllRooms,
+  );
+  const loadedRooms = data.rooms.filter((room) =>
+    ready.has(versions.get(room)!),
+  );
+  const routeReady = required.every((room) => loadedRooms.includes(room));
+  const allReady = loadedRooms.length === data.rooms.length;
+  const readyKey = loadedRooms.join("|");
+  const mountedKey = visibleRooms.join("|");
+  const requiredKey = required.join("|");
+  const onRoomReady = useCallback(
+    (version: string) =>
+      setReady((previous) => {
+        if (previous.has(version)) return previous;
+        return new Set(previous).add(version);
+      }),
+    [],
+  );
+  const onRoomError = useCallback(
+    (version: string) =>
+      setFailed((previous) => new Set(previous).add(version)),
+    [],
+  );
+  useEffect(() => {
+    setMounted((previous) => [...new Set([...previous, ...required])]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [requiredKey]);
+  useEffect(() => {
+    if (required.some((room) => failed.has(versions.get(room)!)))
+      callbacks.current.onError();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [failed, versions, requiredKey]);
+  useEffect(() => {
+    if (routeReady)
+      setCommitted({ destination, navigationId: props.navigationId });
+    // destination and id are one navigation request; last request wins when loading finishes.
+  }, [routeReady, destination, props.navigationId]);
+  useEffect(() => {
+    callbacks.current.onRoomLoading?.(!routeReady);
+    gl.domElement.dataset.loadedRooms = readyKey;
+    gl.domElement.dataset.allRoomsReady = String(allReady);
+    gl.domElement.dataset.pendingRoom = routeReady ? "" : targetRoom;
+    scene.userData.room = currentRoom;
+    scene.userData.artworkCount = data.artworks.length;
+    if (
+      routeReady &&
+      (!props.captureAllRooms || allReady) &&
+      !announced.current
+    ) {
+      announced.current = true;
+      gl.domElement.dataset.warmupMs = (
+        performance.now() - started.current
+      ).toFixed(1);
+      gl.domElement.dataset.rendererReady = "true";
+      performance.mark("museum-ready");
+      callbacks.current.onReady();
+    }
+  }, [
+    readyKey,
+    allReady,
+    routeReady,
+    targetRoom,
+    currentRoom,
+    props.captureAllRooms,
+    data,
+    gl,
+    scene,
+  ]);
+  useEffect(() => {
+    if (!routeReady || props.captureAllRooms) return;
+    // Let the entrance paint and accept input before fetching another room.
+    if (
+      visibleRooms.some(
+        (room) =>
+          !ready.has(versions.get(room)!) && !failed.has(versions.get(room)!),
+      )
+    )
+      return;
+    const next = data.rooms.find((room) => !visibleRooms.includes(room));
+    if (!next) return;
+    const timer = setTimeout(
+      () => setMounted((previous) => [...new Set([...previous, next])]),
+      650,
+    );
+    return () => clearTimeout(timer);
+    // Room membership/version changes drive prefetch, not pointer/selection updates.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    routeReady,
+    readyKey,
+    mountedKey,
+    versions,
+    failed,
+    props.captureAllRooms,
+  ]);
   const frameStats = useRef({
     count: 0,
     lastReport: 0,
@@ -353,31 +537,30 @@ export function MuseumScene(props: MuseumProps) {
     <>
       <MuseumLighting />
       <RenderQuality onPixelRatio={props.onPixelRatio} />
-      {data.rooms.length === 1 && <ClosedEnd roomId="room-1" />}
-      {data.rooms.map((roomId) => (
-        <group key={roomId}>
-          <Architecture
-            roomId={roomId}
-            terminal={roomId === data.rooms.at(-1)}
-          />
-          <RoomFigs roomId={roomId} />
-        </group>
+      {visibleRooms.map((roomId) => (
+        <RoomBoundary
+          key={roomId + versions.get(roomId)}
+          onError={() => onRoomError(versions.get(roomId)!)}
+        >
+          <Suspense fallback={null}>
+            <RoomContent
+              roomId={roomId}
+              version={versions.get(roomId)!}
+              props={props}
+              onReady={onRoomReady}
+              onError={() => onRoomError(versions.get(roomId)!)}
+            />
+          </Suspense>
+        </RoomBoundary>
       ))}
-      {artworks.map((artwork, i) => (
-        <ArtworkFrame
-          key={artwork.id}
-          artwork={artwork}
-          texture={textures[i]}
-          selected={props.selectedArtworkId === artwork.id}
-          onSelect={props.onSelect}
+      {committed && (
+        <CameraDirector
+          {...props}
+          {...committed}
+          ambientTour={props.ambientTour && routeReady}
+          onArrive={(id) => callbacks.current.onArrive(id)}
         />
-      ))}
-      <CameraDirector
-        {...props}
-        onArrive={(id) => {
-          callbacks.current.onArrive(id);
-        }}
-      />
+      )}
     </>
   );
 }

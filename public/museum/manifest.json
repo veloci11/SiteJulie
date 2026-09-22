@@ -13,7 +13,8 @@
     "fig": "/museum/fig-detailed.glb",
     "terminal": "/museum/extension-terminal-contemporary.glb",
     "figReading": "/museum/fig-reading.glb",
-    "figCentral": "/museum/fig-central.glb"
+    "figCentral": "/museum/fig-central.glb",
+    "companionPlants": "/museum/companion-plants.glb"
   },
   "anchors": {
     "hall": {
@@ -916,39 +917,58 @@
     },
     "figReading": {
       "file": "/museum/fig-reading.glb",
-      "bytes": 764660,
-      "triangles": 71924,
-      "meshes": 3,
-      "sha256": "e7cd31f919ee2813de7d4c7cb90dda9619eb11567f712033a7a79be0eccdd1c9",
+      "bytes": 766560,
+      "triangles": 66146,
+      "meshes": 4,
+      "sha256": "c2bb86c757e3bf9b8bb4c6883603a53bd9fcb8afd4171fe284390954bcc21bb8",
       "bounds": {
         "min": [
-          -1.0724533796310425,
-          0.6778745055198669,
-          -0.945519745349884
+          -1.0072402954101562,
+          0.6827601194381714,
+          -0.6716116666793823
         ],
         "max": [
-          1.0374482870101929,
-          4.345088005065918,
-          1.074963092803955
+          0.7087213397026062,
+          3.950000286102295,
+          1.0032092332839966
         ]
       }
     },
     "figCentral": {
       "file": "/museum/fig-central.glb",
-      "bytes": 826352,
-      "triangles": 79564,
-      "meshes": 3,
-      "sha256": "a5d28e61ef7a0d137fec66f2394141b5a318b1d8fdc50ebea7f495869ac03858",
+      "bytes": 832640,
+      "triangles": 74333,
+      "meshes": 4,
+      "sha256": "21205f91b33a80e7ab47ad7da128ebb9b3e887700457bb080628fd4975668d6a",
       "bounds": {
         "min": [
-          -0.9857982397079468,
-          0.6861895322799683,
-          -1.0907750129699707
+          -0.9585153460502625,
+          0.6921042799949646,
+          -0.9611461758613586
         ],
         "max": [
-          0.9883843660354614,
+          0.7786150574684143,
           4.349999904632568,
-          0.9253671169281006
+          0.730355441570282
+        ]
+      }
+    },
+    "companionPlants": {
+      "file": "/museum/companion-plants.glb",
+      "bytes": 664096,
+      "triangles": 74977,
+      "meshes": 15,
+      "sha256": "cb498b44d6a8e71b605aad484b6af5cd9a54bf08373388609dd336612e784857",
+      "bounds": {
+        "min": [
+          -0.6051329374313354,
+          -0.007000000216066837,
+          -0.5753641128540039
+        ],
+        "max": [
+          0.5812416076660156,
+          1.850000023841858,
+          0.6017056703567505
         ]
       }
     }

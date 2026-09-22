@@ -8,8 +8,8 @@ import "./globals.css";
 import "./museum.css";
 export const metadata: Metadata = {
   title: {
-    default: "La galerie | Artiste peintre",
-    template: "%s | La galerie",
+    default: "Julie Thiam — Artiste peintre",
+    template: "%s | Julie Thiam",
   },
   description:
     "Une visite parmi les couleurs. Découvrez les œuvres et entrez dans une galerie en trois dimensions.",

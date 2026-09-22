@@ -4,16 +4,26 @@ Ouvrir `/admin`. Dans la prévisualisation locale, le bouton « Ouvrir l’ateli
 
 ## Ajouter un tableau
 
-1. Choisir **Ajouter une œuvre**, renseigner le titre et le lien (minuscules, chiffres, tirets).
-2. Choisir l’image (JPEG, PNG, WebP, AVIF, 20 Mio / 25 mégapixels maximum). Le brouillon est enregistré, le fichier est décodé et trois variantes WebP sont produites. L’original reste conservé séparément et privé.
-3. Ajouter un texte alternatif, puis les informations connues. Laisser les dimensions, technique et année vides si elles sont inconnues. Une image principale est prise en charge ; les images de détail supplémentaires ne sont pas encore proposées.
-4. Choisir **Prix sur demande** ou **Afficher le prix**. Un prix interne masqué ne part jamais dans les données publiques. Les montants sont enregistrés en centimes, en EUR, CHF ou USD. Un prix inconnu reste vide.
-5. Garder **Automatique** ou choisir un mur. Les emplacements occupés sont indisponibles. **Activer une salle supplémentaire** ajoute explicitement douze emplacements, dans une limite de quatre salles. L’ordre du catalogue ne modifie pas la place du tableau.
+1. Choisir **Ajouter une œuvre**, depuis l’en-tête ou directement dans la collection voulue. Le lien est généré automatiquement ; **Personnaliser le lien de l’œuvre** permet de le modifier.
+2. Choisir ou déposer l’image, même avant le titre (JPEG, PNG, WebP, AVIF, 20 Mio / 25 mégapixels maximum). L’aperçu est immédiat. Rien n’est envoyé avant **Enregistrer les modifications**. Le bouton de retrait annule le changement d’image. Pour une photo HEIC, exporter d’abord en JPEG.
+3. Renseigner le titre et un texte alternatif, puis les informations connues. Laisser les dimensions réelles, technique et année vides si elles sont inconnues. Les dimensions réelles sont affichées dans la description et ne déterminent pas la taille du showroom. Une image principale est prise en charge ; les images de détail supplémentaires ne sont pas encore proposées.
+4. Ouvrir **Vente & prix**, puis choisir **Prix sur demande** ou **Afficher le prix**. La saisie accepte virgule ou point, avec deux décimales maximum. Un prix interne masqué ne part jamais dans les données publiques. Les montants sont enregistrés en centimes, en EUR, CHF ou USD. Un prix inconnu reste vide.
+5. Ouvrir **Collection & accrochage** si nécessaire. Le placement reste automatique tant qu’aucune zone n’est choisie. Une zone peut contenir plusieurs tableaux : seul le nouvel arrivant est adapté à l’espace restant. Les œuvres présentes restent inchangées. Un ajout nécessitant un petit côté inférieur à 25 cm est refusé. Dans **Nouvelle collection**, **Activer une nouvelle salle** ajoute explicitement douze zones, dans une limite de quatre salles. Une collection reste dans sa salle ; un manque de place n’empêche pas d’enregistrer un brouillon. L’ordre du catalogue ne modifie pas la place du tableau.
 6. Dans Publication, choisir **Publiée**, puis **Enregistrer les modifications**. Vérifier ensuite le catalogue dans une autre fenêtre.
 
 Pour retirer une œuvre, choisir Brouillon ou Archivée puis enregistrer. Pour une vente, choisir Vendue dans Disponibilité : elle peut rester publiée. Aucun paiement ni panier n’est proposé. Pour les textes et l’email, ouvrir **Textes & contact**, modifier puis enregistrer. Le bouton public de contact ouvre l’application de messagerie ; aucun email n’est envoyé par le serveur.
 
-Une modification concurrente affiche une erreur : revenir à la liste et rouvrir l’œuvre avant de réessayer. Si une image échoue, le brouillon reste disponible ; choisir un autre fichier. L’archivage est réversible et aucune suppression définitive n’est exposée dans cette version.
+La barre d’enregistrement indique les modifications en attente, l’envoi de l’image, son traitement et le résultat. Les contrôles sont bloqués pendant l’enregistrement pour éviter de perdre une saisie en cours. Changer d’écran ou fermer/recharger la page avec des modifications demande confirmation.
+
+Une modification concurrente affiche une erreur et propose **Recharger la version enregistrée**, avec confirmation avant de remplacer vos saisies. Si une image échoue, la fiche déjà enregistrée reste disponible et le fichier choisi reste en attente : **Enregistrer les modifications** réessaie sans créer un second tableau. L’image précédente est conservée si son remplacement échoue. Pour une création suivie d’une publication, la fiche reste en brouillon tant que l’image ou le placement n’est pas validé. Ces étapes ne constituent pas une transaction unique ; le message précise les éventuels enregistrements partiels.
+
+Une session expirée conserve le formulaire et propose de se reconnecter dans un autre onglet, puis de réessayer. L’archivage est réversible et aucune suppression définitive n’est exposée dans cette version.
+
+## Réorganiser plusieurs tableaux
+
+Depuis **Les œuvres**, choisir **Réorganiser la salle**. Le plan A/B/C/D et la vue de face permettent de retirer les tableaux dans une réserve puis de les replacer au clic ou par glisser-déposer à la souris. **Tout mettre en réserve**, **Annuler le geste** et **Rétablir** facilitent les changements complets. Ce mode garde toutes les œuvres dans leur salle et conserve leurs collections. Le plan reste toujours déplié. Le tableau sélectionné dispose d’une poignée ↘ pour le redimensionner ; la largeur et la hauteur dans le showroom sont aussi saisissables, avec proportions conservées et arrêt avant les bords/voisins. Un seul clic sur Annuler revient au début du geste.
+
+**Enregistrer le brouillon** permet de fermer puis de reprendre, même si des tableaux restent dans la réserve. **Appliquer à la galerie** attend que tout soit correctement replacé et sauvegarde toute la salle en une opération. La galerie reste inchangée pendant les essais ; quitter des modifications non enregistrées déclenche un avertissement. Voir [le guide du mode salle](ADMIN_ROOM_LAYOUT.md) pour les parcours et limites de stockage.
 
 # Mise en service Supabase
 
@@ -38,7 +48,11 @@ Pour Supabase, une sauvegarde PostgreSQL ne sauvegarde pas les objets Storage : 
 
 # Vérifications exécutables
 
+- `npm run build && node scripts/admin-ergonomics-qa.mjs` : campagne actuelle, compilation standalone et copie jetable des données/médias sur un port local disponible. Parcours Chrome et WebKit, captures dans `artifacts/admin-ergonomics/`. Les anciens scripts ci-dessous documentent des versions antérieures de l’interface et leurs sélecteurs peuvent nécessiter une mise à jour.
+
 - `npx vitest run tests/admin.test.ts` : autorisations et cookies, origine, projection sans prix caché, révisions concurrentes, persistance, publication et capacité des salles, emplacements compatibles, décodage et variantes sans agrandissement. Chaque test utilise un dossier temporaire supprimé ensuite.
 - `node scripts/admin-browser-qa.mjs` : copie temporaire du projet et des médias, build Next de production indépendante, serveur sur 127.0.0.1:3001, parcours complet dans Google Chrome installé et seconde session publique. Le serveur et la copie sont supprimés à la fin. Le stockage principal n’est pas modifié. Sorties : `artifacts/admin/browser-report.json` et capture `published-fixture.png`.
 
 Le parcours navigateur a été exécuté avec succès le 12 septembre 2026 : connexion, brouillon, upload PNG, publication automatique, prix public, masquage sans fuite, reconnexion, archivage puis refus de l’œuvre et du média anonymes. La validation Supabase distante et la réception d’emails ne sont pas couvertes et n’ont pas été effectuées.
+
+Le fonctionnement des zones partagées, des pointillés permanents et de l’ajout automatique est détaillé dans [ADMIN_ZONES.md](ADMIN_ZONES.md).

@@ -27,7 +27,7 @@ test("the server-rendered gallery image is visible with JavaScript disabled", as
       path: "artifacts/contemporary/arrival-no-javascript-mobile.png",
     });
     await page
-      .getByRole("link", { name: "Catalogue classique", exact: true })
+      .getByRole("link", { name: "Voir le catalogue", exact: true })
       .click();
     await expect(page.locator(".catalogue-card")).toHaveCount(8);
   } finally {

@@ -62,10 +62,14 @@ async function main() {
             deviceScaleFactor: 1.5,
             reducedMotion: "reduce",
           });
-          const port = empty ? 3002 : 3000;
-          await page.goto(`http://127.0.0.1:${port}/?vue=salle&salle=${room}`);
+          const origin = empty
+            ? "http://127.0.0.1:3002"
+            : process.env.MUSEUM_QA_URL || "http://127.0.0.1:3000";
+          await page.goto(`${origin}/?vue=salle&salle=${room}`);
           await page
-            .locator('canvas[data-navigation-state="arrived"]')
+            .locator(
+              'canvas[data-navigation-state="arrived"][data-all-rooms-ready="true"]',
+            )
             .waitFor({ timeout: 60000 });
           await page
             .locator(".visit-arrival.is-ready")

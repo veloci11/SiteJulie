@@ -1,6 +1,7 @@
 import "server-only";
 import { BlobPreconditionFailedError, get, head, put } from "@vercel/blob";
 import type { LocalStore, UploadRecord } from "./local";
+import { roomLayoutDraftsSchema } from "@/lib/admin/room-layout";
 import {
   artworkSchema,
   blankSettings,
@@ -50,6 +51,10 @@ function parseStore(value: unknown): LocalStore {
     settings: settingsSchema.parse(store.settings),
     rooms: store.rooms,
     uploads: parseUploads(store.uploads),
+    roomLayoutDrafts:
+      store.roomLayoutDrafts === undefined
+        ? undefined
+        : roomLayoutDraftsSchema.parse(store.roomLayoutDrafts),
   };
 }
 

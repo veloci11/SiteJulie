@@ -13,7 +13,12 @@ export async function GET(
     const variant = new URL(request.url).searchParams.get("variant") || "room";
     if (!Object.prototype.hasOwnProperty.call(variants, variant))
       throw new ServiceError("Variante invalide.", 400);
-    const result = await getMedia(id, variant as Variant);
+    const result = await getMedia(
+      id,
+      variant as Variant,
+      true,
+      request.headers.get("if-none-match") ?? undefined,
+    );
     if (result.url)
       return NextResponse.redirect(result.url, {
         status: 307,
@@ -22,12 +27,29 @@ export async function GET(
           "Referrer-Policy": "no-referrer",
         },
       });
-    return new NextResponse(new Uint8Array(result.buffer!), {
-      headers: {
-        "Content-Type": "image/webp",
-        "Cache-Control": "private, no-store",
-        "X-Content-Type-Options": "nosniff",
-      },
+    const headers = {
+      "Content-Type": "image/webp",
+      // Same 60-second revocation window as the existing signed image URLs.
+      // Draft/admin images are never retained by the browser.
+      "Cache-Control": result.published
+        ? "private, max-age=60, must-revalidate"
+        : "private, no-store",
+      "X-Content-Type-Options": "nosniff",
+      ...(result.etag ? { ETag: result.etag } : {}),
+    };
+    const matches = request.headers
+      .get("if-none-match")
+      ?.split(",")
+      .some(
+        (value) =>
+          value.trim().replace(/^W\//, "") === result.etag?.replace(/^W\//, ""),
+      );
+    if (result.published && (result.notModified || (result.etag && matches))) {
+      await result.stream?.cancel();
+      return new NextResponse(null, { status: 304, headers });
+    }
+    return new NextResponse(result.stream ?? new Uint8Array(result.buffer!), {
+      headers,
     });
   } catch (e) {
     return failure(e);

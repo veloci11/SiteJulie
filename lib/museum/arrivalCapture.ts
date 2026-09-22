@@ -52,7 +52,9 @@ export const captureArrivalBatch: ArrivalCapture = async (
             timeout: 60_000,
           });
           await page
-            .locator('canvas[data-navigation-state="arrived"]')
+            .locator(
+              'canvas[data-navigation-state="arrived"][data-all-rooms-ready="true"]',
+            )
             .waitFor({ timeout: 60_000 });
           await page
             .locator(".visit-arrival.is-ready")

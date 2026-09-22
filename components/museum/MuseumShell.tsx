@@ -18,12 +18,12 @@ import {
   ChevronLeft,
   ChevronRight,
   Compass,
-  Expand,
+  DoorOpen,
+  BookOpen,
   Grid2X2,
   Home,
   Mail,
   Menu,
-  Minimize,
   X,
 } from "lucide-react";
 import type { Artwork, Destination, PublicData } from "@/lib/data/types";
@@ -36,6 +36,7 @@ import {
 } from "@/lib/public";
 import { getRoomName } from "@/lib/museum/config";
 import { groupCollections } from "@/lib/data/collections";
+import { TourArtworkPreview } from "./TourArtworkPreview";
 import ContactActions from "@/components/public/ContactActions";
 import { useLiveMuseumData, useRoomPreviewVersion } from "./useLiveMuseumData";
 
@@ -109,19 +110,18 @@ export default function MuseumShell({
       initialDestination.kind === "contact",
   );
   const [reducedMotion, setReducedMotion] = useState(false);
-  const [expanded, setExpanded] = useState(false);
-  const [skip, setSkip] = useState(false);
   const [drawer, setDrawer] = useState<Drawer>(null);
   const previewVersion = useRoomPreviewVersion(
     catalogueVersion,
-    drawer === "rooms",
+    drawer === "rooms" || !revealed,
   );
   const [filter, setFilter] = useState("all");
-  const [seenHint, setSeenHint] = useState(false);
+  const [stripExpanded, setStripExpanded] = useState(true);
+  const [tourArtworkId, setTourArtworkId] = useState<string | null>(null);
+  const dock = useRef<HTMLElement>(null);
   const [selectedCollection, setSelectedCollection] = useState<string | null>(
     null,
   );
-  const [tourArtworkId, setTourArtworkId] = useState<string | null>(null);
   const dialog = useRef<HTMLDialogElement>(null);
   const editorialDialog = useRef<HTMLDialogElement>(null);
   const editorialOpener = useRef<HTMLElement | null>(null);
@@ -173,15 +173,11 @@ export default function MuseumShell({
     if (activeArtwork) setSelectedCollection(activeArtwork.collection);
   }, [activeArtwork?.id, activeArtwork?.collection]);
   const overview = destination.kind === "home" || destination.kind === "room";
-  const tourArtwork = overview
-    ? (collectionArtworks.find((a) => a.id === tourArtworkId) ??
-      collectionArtworks[0])
-    : undefined;
-  const activeIndex = collectionArtworks.findIndex(
-    (a) => a.id === activeArtwork?.id,
-  );
+  const canBrowseInline = overview || destination.kind === "artwork";
+  const showStrip = stripExpanded && canBrowseInline;
   const showDetails = ready && !failed && !!activeArtwork && !traveling;
-  const showEditorial = destination.kind === "about" || destination.kind === "contact";
+  const showEditorial =
+    destination.kind === "about" || destination.kind === "contact";
   const showHome =
     !failed &&
     !traveling &&
@@ -189,9 +185,12 @@ export default function MuseumShell({
 
   useEffect(() => {
     if (!ready) return;
-    const timer = window.setTimeout(() => setRevealed(true), 1450);
+    const timer = window.setTimeout(
+      () => setRevealed(true),
+      reducedMotion ? 0 : 450,
+    );
     return () => window.clearTimeout(timer);
-  }, [ready]);
+  }, [ready, reducedMotion]);
 
   const closeDrawer = useCallback(() => {
     setDrawer(null);
@@ -255,11 +254,14 @@ export default function MuseumShell({
         sceneDestinationRef.current = nextScene;
         setSceneDestination(nextScene);
         setTraveling(true);
-        setSkip(false);
+      }
+      if (next.kind === "artwork") {
+        const artwork = data.artworks.find((a) => a.id === next.artworkId);
+        if (artwork) setSelectedCollection(artwork.collection);
       }
       lastDestination.current = next;
       setDestination(next);
-      setSeenHint(true);
+
       if (push)
         window.history.pushState(null, "", destinationUrl(next, data.artworks));
     },
@@ -344,13 +346,10 @@ export default function MuseumShell({
         parseDestination(window.location.search, data.artworks, data.rooms),
         false,
       );
-    const full = () => setExpanded(Boolean(document.fullscreenElement));
     window.addEventListener("popstate", pop);
-    document.addEventListener("fullscreenchange", full);
     return () => {
       motion.removeEventListener("change", change);
       window.removeEventListener("popstate", pop);
-      document.removeEventListener("fullscreenchange", full);
     };
   }, [data.artworks, data.rooms, navigate]);
   useEffect(() => {
@@ -395,15 +394,16 @@ export default function MuseumShell({
     (offset: number) => {
       const collection = collectionArtworks;
       if (!collection.length) return;
-      const visibleIndex =
-        activeIndex >= 0
-          ? activeIndex
-          : collection.findIndex((a) => a.id === tourArtwork?.id);
-      const base = visibleIndex < 0 ? (offset > 0 ? -1 : 0) : visibleIndex;
-      const index = (base + offset + collection.length) % collection.length;
-      navigate({ kind: "artwork", artworkId: collection[index].id });
+      // Use the latest requested destination, including clicks in the same frame.
+      const requested = lastDestination.current;
+      const index = collection.findIndex(
+        (a) => requested.kind === "artwork" && a.id === requested.artworkId,
+      );
+      const base = index < 0 ? (offset > 0 ? -1 : 0) : index;
+      const next = (base + offset + collection.length) % collection.length;
+      navigate({ kind: "artwork", artworkId: collection[next].id });
     },
-    [activeIndex, collectionArtworks, navigate, tourArtwork?.id],
+    [collectionArtworks, navigate],
   );
   useEffect(() => {
     const key = (event: KeyboardEvent) => {
@@ -433,9 +433,9 @@ export default function MuseumShell({
   }, [destination.kind, roomId, adjacent, navigate, closeArtwork]);
   useEffect(() => {
     const node = filmstrip.current;
-    const selected = node?.querySelector<HTMLElement>(
-      `[data-artwork="${activeArtwork?.id}"]`,
-    );
+    const selected = Array.from(
+      node?.querySelectorAll<HTMLElement>("[data-artwork]") ?? [],
+    ).find((card) => card.dataset.artwork === activeArtwork?.id);
     if (node && selected)
       node.scrollTo({
         left:
@@ -444,7 +444,27 @@ export default function MuseumShell({
           (node.clientWidth - selected.clientWidth) / 2,
         behavior: reducedMotion ? "instant" : "smooth",
       });
-  }, [activeArtwork?.id, reducedMotion]);
+    else if (node) node.scrollTo({ left: 0, behavior: "instant" });
+  }, [activeArtwork?.id, currentCollection?.name, showStrip, reducedMotion]);
+
+  // Reserve the real dock height, including wrapped labels and safe-area spacing.
+  useEffect(() => {
+    const node = dock.current;
+    const shell = node?.closest<HTMLElement>(".visit-shell");
+    if (!node || !shell) return;
+    const update = () => {
+      const clearance =
+        shell.getBoundingClientRect().bottom -
+        node.getBoundingClientRect().top +
+        10;
+      shell.style.setProperty("--dock-clearance", `${clearance}px`);
+    };
+    const observer = new ResizeObserver(update);
+    observer.observe(node);
+    observer.observe(shell);
+    update();
+    return () => observer.disconnect();
+  }, [ready, failed]);
 
   function menuLink(
     event: React.MouseEvent<HTMLAnchorElement>,
@@ -461,14 +481,6 @@ export default function MuseumShell({
       return;
     event.preventDefault();
     navigate(next);
-  }
-  async function fullscreen() {
-    try {
-      if (document.fullscreenElement) await document.exitFullscreen();
-      else await document.querySelector(".visit-shell")?.requestFullscreen();
-    } catch {
-      /* Browser can decline fullscreen; the normal full viewport stays usable. */
-    }
   }
   const selectArtwork = (a: Artwork) =>
     navigate({ kind: "artwork", artworkId: a.id });
@@ -504,7 +516,16 @@ export default function MuseumShell({
           >
             Accueil
           </a>
-          <button onClick={() => openDrawer("artworks")}>Les œuvres</button>
+          <button
+            aria-current={activeArtwork ? "page" : undefined}
+            aria-haspopup="dialog"
+            onClick={() => {
+              setFilter("all");
+              openDrawer("artworks");
+            }}
+          >
+            Les œuvres
+          </button>
           <a
             href="/a-propos"
             onClick={(e) => menuLink(e, { kind: "about" })}
@@ -522,29 +543,21 @@ export default function MuseumShell({
         </nav>
         <div className="visit-header-actions">
           <Link
-            className="visit-catalogue"
-            aria-label="Catalogue classique"
+            className="visit-catalogue gallery-view-switch"
+            aria-label="Voir le catalogue"
             href={classicUrl(destination, data.artworks)}
           >
-            <Grid2X2 size={16} />
-            <span>Catalogue classique</span>
+            <BookOpen size={17} strokeWidth={1.5} />
+            <span>Catalogue</span>
           </Link>
-          <button
-            className="visit-icon visit-fullscreen"
-            aria-label={
-              expanded ? "Quitter le plein écran" : "Afficher en plein écran"
-            }
-            onClick={fullscreen}
-          >
-            {expanded ? <Minimize size={18} /> : <Expand size={18} />}
-          </button>
           <button
             className="visit-icon visit-menu"
             aria-label="Ouvrir le menu"
             aria-haspopup="dialog"
             onClick={() => openDrawer("menu")}
           >
-            <Menu size={22} />
+            <Menu size={20} />
+            <span>Menu</span>
           </button>
         </div>
       </header>
@@ -586,11 +599,6 @@ export default function MuseumShell({
             if (Date.now() < suppressClick.current) {
               event.preventDefault();
               event.stopPropagation();
-            } else if (travelingRef.current) {
-              // A moving artwork can slide under the pointer between down/up.
-              // During a journey, a scene tap cancels it regardless of ray hits.
-              event.stopPropagation();
-              closeArtwork();
             }
           }}
         >
@@ -604,8 +612,8 @@ export default function MuseumShell({
                 onSelect={navigate}
                 onArrive={onArrive}
                 onReady={onReady}
+                onTourArtwork={setTourArtworkId}
                 onError={onError}
-                skipTransition={skip}
                 roomAutoplay={roomAutoplay}
                 resumeFromCurrent={resumeFromCurrent}
                 selectedArtworkId={activeArtwork?.id ?? null}
@@ -619,7 +627,6 @@ export default function MuseumShell({
                   !reducedMotion &&
                   (!traveling || roomAutoplay)
                 }
-                onTourArtwork={setTourArtworkId}
               />
             </SceneBoundary>
           )}
@@ -641,8 +648,9 @@ export default function MuseumShell({
           />
         </picture>
         {!ready && !failed && (
-          <span className="sr-only" role="status">
-            La visite interactive se prépare. Le catalogue est déjà accessible.
+          <span className="visit-loading-hint" role="status">
+            <span className="visit-loading-spinner" aria-hidden="true" />
+            Chargement de la visite…
           </span>
         )}
         {failed && (
@@ -659,9 +667,28 @@ export default function MuseumShell({
           </div>
         )}
         {showHome && (
-          <div className="visit-hero is-introduction">
-            <p className="eyebrow">{getRoomName(roomId, data.artworks)}</p>
-            {overview && (
+          <div
+            className={`visit-hero ${destination.kind === "home" ? "is-introduction" : "is-room-label"}`}
+          >
+            <p className="eyebrow">
+              {roomCollections.length ? (
+                <>
+                  Collections :{" "}
+                  {roomCollections.map((group) => group.name).join(" · ")}
+                </>
+              ) : (
+                getRoomName(roomId, data.artworks)
+              )}
+            </p>
+            {data.rooms.length > 1 && (
+              <button
+                className="visit-other-collections"
+                onClick={() => navigate({ kind: "room", roomId: nextRoomId })}
+              >
+                Voir les autres collections <ArrowRight size={15} />
+              </button>
+            )}
+            {destination.kind === "home" && (
               <>
                 <h1>
                   {data.settings.heroTitle.split("\n").map((line, i) => (
@@ -684,7 +711,7 @@ export default function MuseumShell({
             )}
           </div>
         )}
-        {ready && !failed && !showHome && !showEditorial && (
+        {ready && !failed && activeArtwork && (
           <button
             className="visit-back"
             onClick={closeArtwork}
@@ -693,51 +720,6 @@ export default function MuseumShell({
             <ArrowLeft size={16} />
             <span>Reprendre la visite</span>
           </button>
-        )}
-        {traveling && !failed && !showEditorial && (
-          <div className="visit-travel" role="status">
-            <span className="visit-travel-dot" />{" "}
-            {activeArtwork
-              ? `Vers ${activeArtwork.title}`
-              : destination.kind === "room"
-                ? `Vers ${getRoomName(roomId, data.artworks)}`
-                : "La visite continue"}
-            <button onClick={() => setSkip(true)}>
-              Arriver directement <ArrowRight size={13} />
-            </button>
-          </div>
-        )}
-        {ready && !failed && overview && tourArtwork && (
-          <aside
-            className="visit-preview"
-            aria-label="Au fil de la visite"
-            data-artwork-id={tourArtwork.id}
-          >
-            <span className="eyebrow">{tourArtwork.collection}</span>
-            <button
-              className="visit-preview-work"
-              onClick={() => selectArtwork(tourArtwork)}
-              aria-label={`Voir ${tourArtwork.title}`}
-            >
-              <img src={tourArtwork.thumbnail} alt={tourArtwork.alt} />
-              <span className="visit-preview-title">{tourArtwork.title}</span>
-              <span className="visit-preview-price">
-                {priceLabel(tourArtwork)} <ArrowUpRight size={15} />
-              </span>
-            </button>
-            <p className="visit-preview-description">
-              {data.settings.collectionDescriptions?.[tourArtwork.collection]}
-            </p>
-            <button
-              className="visit-complete"
-              onClick={() => {
-                setFilter(tourArtwork.collection);
-                openDrawer("artworks");
-              }}
-            >
-              Explorer cette collection <ArrowRight size={14} />
-            </button>
-          </aside>
         )}
         {showDetails && activeArtwork && (
           <aside
@@ -832,20 +814,24 @@ export default function MuseumShell({
               <X size={18} />
             </button>
             <div className="visit-editorial-art">
-              <img
-                src={
-                  (
-                    data.artworks.find((a) => a.id === "oeuvre-06") ??
-                    data.artworks[0]
-                  )?.image
-                }
-                alt={
-                  (
-                    data.artworks.find((a) => a.id === "oeuvre-06") ??
-                    data.artworks[0]
-                  )?.alt ?? ""
-                }
-              />
+              {showEditorial && (
+                <img
+                  crossOrigin="anonymous"
+                  decoding="async"
+                  src={
+                    (
+                      data.artworks.find((a) => a.id === "oeuvre-06") ??
+                      data.artworks[0]
+                    )?.image
+                  }
+                  alt={
+                    (
+                      data.artworks.find((a) => a.id === "oeuvre-06") ??
+                      data.artworks[0]
+                    )?.alt ?? ""
+                  }
+                />
+              )}
               <span>
                 {data.settings.artistName}
                 <small>La couleur comme langage</small>
@@ -906,8 +892,26 @@ export default function MuseumShell({
           </dialog>
         )}
       </main>
+      {ready &&
+        !failed &&
+        revealed &&
+        overview &&
+        !reducedMotion &&
+        !traveling &&
+        !drawer && (
+          <TourArtworkPreview
+            collectionDescriptions={data.settings.collectionDescriptions}
+            artwork={data.artworks.find((a) => a.id === tourArtworkId)}
+            dock={dock}
+            onSelect={navigate}
+          />
+        )}
       {ready && !failed && (
-        <footer className="visit-dock" aria-label="Explorer la collection">
+        <footer
+          ref={dock}
+          className={`visit-dock ${showStrip ? "is-expanded" : "is-compact"}`}
+          aria-label="Explorer la collection"
+        >
           <div className="visit-dock-heading">
             <button
               className="visit-room-switch"
@@ -917,17 +921,39 @@ export default function MuseumShell({
               title="Choisir une salle"
               onClick={() => openDrawer("rooms")}
             >
-              <Grid2X2 size={16} />
+              <DoorOpen size={20} strokeWidth={1.6} aria-hidden="true" />
               <span>Changer de salle</span>
               <ChevronDown className="visit-room-chevron" size={14} />
             </button>
             <button
-              className="visit-room-next"
-              onClick={() => navigate({ kind: "room", roomId: nextRoomId })}
-              disabled={data.rooms.length < 2}
-              aria-label={`Salle suivante : ${getRoomName(nextRoomId, data.artworks)}`}
+              className="visit-browse-toggle"
+              aria-expanded={canBrowseInline ? showStrip : undefined}
+              aria-controls={
+                canBrowseInline ? "visit-collection-browser" : undefined
+              }
+              aria-label={
+                canBrowseInline
+                  ? showStrip
+                    ? "Réduire les miniatures"
+                    : "Afficher les miniatures"
+                  : "Choisir une œuvre"
+              }
+              onClick={() => {
+                if (canBrowseInline) setStripExpanded((value) => !value);
+                else {
+                  setFilter(currentCollection?.name ?? "all");
+                  openDrawer("artworks");
+                }
+              }}
             >
-              Salle suivante <ArrowRight size={16} />
+              <Grid2X2 size={16} />
+              <span>Les œuvres</span>
+              {canBrowseInline && (
+                <ChevronDown
+                  size={14}
+                  className={showStrip ? "" : "is-closed"}
+                />
+              )}
             </button>
             <nav
               className="visit-work-steps"
@@ -953,88 +979,125 @@ export default function MuseumShell({
               </button>
             </nav>
           </div>
-          <div
-            className="visit-series-tabs"
-            role="tablist"
-            aria-label="Collections de cette salle"
-          >
-            {roomCollections.map((group) => (
-              <button
-                key={group.name}
-                role="tab"
-                aria-selected={group.name === currentCollection?.name}
-                aria-controls="visit-room-filmstrip"
-                onClick={() => setSelectedCollection(group.name)}
-                onKeyDown={(event) => {
-                  if (!["ArrowLeft", "ArrowRight"].includes(event.key)) return;
-                  event.preventDefault();
-                  const index = roomCollections.findIndex(
-                    (g) => g.name === group.name,
-                  );
-                  const next =
-                    (index +
-                      (event.key === "ArrowRight" ? 1 : -1) +
-                      roomCollections.length) %
-                    roomCollections.length;
-                  setSelectedCollection(roomCollections[next].name);
-                  (
-                    event.currentTarget.parentElement?.children[
-                      next
-                    ] as HTMLButtonElement
-                  )?.focus();
-                }}
+          <div id="visit-collection-browser" hidden={!showStrip}>
+            <div className="visit-collections-row">
+              <span className="visit-collections-label">Collections :</span>
+              <div
+                className="visit-series-tabs"
+                role="tablist"
+                aria-label="Collections de cette salle"
               >
-                {group.name}
-                <span>{group.artworks.length} œuvres</span>
-              </button>
-            ))}
-          </div>
-          <div
-            role="tabpanel"
-            ref={filmstrip}
-            id="visit-room-filmstrip"
-            className="visit-filmstrip"
-            aria-label={`Les œuvres de ${currentCollection?.name ?? "cette collection"}`}
-          >
-            {collectionArtworks.map((a) => (
+                {roomCollections.map((group) => (
+                  <button
+                    key={group.name}
+                    role="tab"
+                    tabIndex={group.name === currentCollection?.name ? 0 : -1}
+                    aria-selected={group.name === currentCollection?.name}
+                    aria-controls="visit-room-filmstrip"
+                    onClick={() => setSelectedCollection(group.name)}
+                    onKeyDown={(event) => {
+                      if (!["ArrowLeft", "ArrowRight"].includes(event.key))
+                        return;
+                      event.preventDefault();
+                      const index = roomCollections.findIndex(
+                        (g) => g.name === group.name,
+                      );
+                      const next =
+                        (index +
+                          (event.key === "ArrowRight" ? 1 : -1) +
+                          roomCollections.length) %
+                        roomCollections.length;
+                      setSelectedCollection(roomCollections[next].name);
+                      (
+                        event.currentTarget.parentElement?.children[
+                          next
+                        ] as HTMLButtonElement
+                      )?.focus();
+                    }}
+                  >
+                    {group.name}
+                    <span>{group.artworks.length} œuvres</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="visit-filmstrip-row">
               <button
-                key={a.id}
-                className="visit-film-card"
-                data-availability={a.availability}
-                data-artwork={a.id}
-                aria-label={`Découvrir ${a.title}`}
-                aria-describedby={`film-price-${a.id}${priceLabel(a) !== availabilityLabel(a) ? ` film-status-${a.id}` : ""}`}
-                aria-pressed={a.id === activeArtwork?.id}
-                onClick={() => selectArtwork(a)}
+                className="visit-strip-arrow visit-icon"
+                aria-label="Défiler les miniatures vers la gauche"
+                onClick={() =>
+                  filmstrip.current?.scrollBy({
+                    left: -filmstrip.current.clientWidth * 0.8,
+                    behavior: reducedMotion ? "instant" : "smooth",
+                  })
+                }
               >
-                <img src={a.thumbnail} alt={a.alt} />
-                <span>
-                  <span className="visit-film-title">{a.title}</span>
-                  <small id={`film-price-${a.id}`} className="visit-film-price">
-                    {priceLabel(a)}
-                  </small>
-                  {priceLabel(a) !== availabilityLabel(a) && (
-                    <small
-                      id={`film-status-${a.id}`}
-                      className="visit-film-status"
-                    >
-                      {availabilityLabel(a)}
-                    </small>
-                  )}
-                </span>
-                {a.id === activeArtwork?.id && (
-                  <span className="visit-selected">
-                    <Check size={12} />
-                  </span>
-                )}
+                <ChevronLeft size={20} />
               </button>
-            ))}
+              <div
+                role="tabpanel"
+                ref={filmstrip}
+                id="visit-room-filmstrip"
+                className="visit-filmstrip"
+                aria-label={`Les œuvres de ${currentCollection?.name ?? "cette collection"}`}
+              >
+                {collectionArtworks.map((a) => (
+                  <button
+                    key={a.id}
+                    className="visit-film-card"
+                    data-availability={a.availability}
+                    data-artwork={a.id}
+                    aria-label={`Découvrir ${a.title}`}
+                    aria-describedby={`film-price-${a.id}${priceLabel(a) !== availabilityLabel(a) ? ` film-status-${a.id}` : ""}`}
+                    aria-pressed={a.id === activeArtwork?.id}
+                    onClick={() => selectArtwork(a)}
+                  >
+                    <img
+                      src={a.thumbnail}
+                      alt={a.alt}
+                      loading="lazy"
+                      decoding="async"
+                      crossOrigin="anonymous"
+                    />
+                    <span>
+                      <span className="visit-film-title">{a.title}</span>
+                      <small
+                        id={`film-price-${a.id}`}
+                        className="visit-film-price"
+                      >
+                        {priceLabel(a)}
+                      </small>
+                      {priceLabel(a) !== availabilityLabel(a) && (
+                        <small
+                          id={`film-status-${a.id}`}
+                          className="visit-film-status"
+                        >
+                          {availabilityLabel(a)}
+                        </small>
+                      )}
+                    </span>
+                    {a.id === activeArtwork?.id && (
+                      <span className="visit-selected">
+                        <Check size={12} />
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+              <button
+                className="visit-strip-arrow visit-icon"
+                aria-label="Défiler les miniatures vers la droite"
+                onClick={() =>
+                  filmstrip.current?.scrollBy({
+                    left: filmstrip.current.clientWidth * 0.8,
+                    behavior: reducedMotion ? "instant" : "smooth",
+                  })
+                }
+              >
+                <ChevronRight size={20} />
+              </button>
+            </div>
           </div>
-          {!seenHint && (
-            <span className="visit-swipe-hint">
-              Sur l’écran, balayez pour changer d’œuvre
-            </span>
-          )}
         </footer>
       )}
       <dialog
@@ -1072,7 +1135,12 @@ export default function MuseumShell({
                 <Home size={20} />
                 Accueil <ArrowUpRight size={16} />
               </button>
-              <button onClick={() => setDrawer("artworks")}>
+              <button
+                onClick={() => {
+                  setFilter("all");
+                  setDrawer("artworks");
+                }}
+              >
                 <Grid2X2 size={20} />
                 Les œuvres <ArrowRight size={16} />
               </button>
@@ -1087,7 +1155,7 @@ export default function MuseumShell({
                 Contact <ArrowUpRight size={16} />
               </button>
               <Link href={classicUrl(destination, data.artworks)}>
-                Catalogue classique <ArrowUpRight size={16} />
+                Catalogue <ArrowUpRight size={16} />
               </Link>
               <div className="visit-demo-note">
                 Version de démonstration · Titres et collections provisoires ·
@@ -1170,7 +1238,13 @@ export default function MuseumShell({
                       onClick={() => selectArtwork(a)}
                     >
                       <div>
-                        <img src={a.image} alt={a.alt} loading="lazy" />
+                        <img
+                          src={a.image}
+                          alt={a.alt}
+                          loading="lazy"
+                          crossOrigin="anonymous"
+                          decoding="async"
+                        />
                       </div>
                       <span>
                         <strong>{a.title}</strong>

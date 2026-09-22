@@ -1,6 +1,7 @@
 import { CatmullRomCurve3, Vector3 } from "three";
 import type { Artwork, Destination, PublicData } from "@/lib/data/types";
 import architectureManifest from "../../public/museum/manifest.json";
+import companionPlants from "./companion-plants.json";
 import {
   ROOM_DEPTH,
   FRAME_OUTSET,
@@ -54,8 +55,8 @@ export function roomForDestination(destination: Destination, data: PublicData) {
 export function artworkInsets(width: number, height: number) {
   const compactLandscape = height <= 520 && width > height;
   const portrait = width <= 700 && !compactLandscape;
-  let top = portrait ? 88 : compactLandscape ? 64 : 96;
-  let bottom = portrait ? 252 : compactLandscape ? 124 : 210;
+  let top = portrait ? 128 : compactLandscape ? 120 : 96;
+  let bottom = portrait ? 224 : 90;
   let right = portrait ? 0 : compactLandscape ? 280 : 330;
   const verticalBudget = Math.max(0, height - Math.max(96, height * 0.38));
   const verticalScale = Math.min(1, verticalBudget / (top + bottom));
@@ -294,6 +295,19 @@ export function obstaclesForRooms(roomIds: string[]): Obstacle[] {
       add("side-lintel", [a, 3.5, -7.8], [b, 7, -5.2]);
     }
     const module = roomId === "room-1" ? "hall" : "extension";
+    for (const plant of companionPlants[module]) {
+      const species =
+        companionPlants.species[
+          plant.species as keyof typeof companionPlants.species
+        ];
+      const radius = species.radius * plant.scale;
+      const [x, y, localZ] = plant.position;
+      add(
+        `plant-${plant.id}`,
+        [x - radius, y, localZ - radius],
+        [x + radius, y + species.height * plant.scale, localZ + radius],
+      );
+    }
     for (const obstacle of manifest.obstaclesByModule?.[module] ??
       manifest.obstacles)
       add(obstacle.kind, obstacle.min as Vec3, obstacle.max as Vec3);
@@ -496,9 +510,9 @@ export function routeLength(path: Vec3[]) {
 export function validatePlacements(data: PublicData) {
   const ids = new Set<string>();
   for (const a of data.artworks) {
-    if (ids.has(a.slotId))
-      throw new Error(`Emplacement occupé deux fois : ${a.slotId}`);
-    ids.add(a.slotId);
+    if (ids.has(a.id))
+      throw new Error(`Œuvre présente deux fois : ${a.id}`);
+    ids.add(a.id);
     if (!getSlots(a.roomId).some((s) => s.id === a.slotId))
       throw new Error(`Emplacement absent : ${a.slotId}`);
   }
@@ -966,7 +980,7 @@ export function planCameraMotion(
       Math.abs(initial.offsetVelocityX) / 100 +
       Math.abs(initial.offsetVelocityY) / 100 +
       Math.abs(initial.fovVelocity) / 10 >
-    0.001;
+    1e-8;
   let coastDuration = moving ? 0.24 : 0;
   const obstacles = navigationObstaclesForRooms(roomIds);
   // A new click preserves the exact velocity of the rendered pose. The short

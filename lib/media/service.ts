@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { readFile, mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import sharp from "sharp";
@@ -16,7 +16,7 @@ import {
 } from "@/lib/auth/server";
 import { localRoot, mutateLocal, readLocal } from "@/lib/data/local";
 import { mutateBlob, readBlob } from "@/lib/data/blob";
-import { ServiceError } from "@/lib/validation/artwork";
+import { resolvePlacement, ServiceError } from "@/lib/validation/artwork";
 export const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
 export const variants = { thumb: 320, room: 1536, detail: 2560 } as const;
 export type Variant = keyof typeof variants;
@@ -94,7 +94,8 @@ export async function createUpload(artworkId: string) {
   const id = randomUUID();
   if (isDemo()) {
     await mutateLocal((data) => {
-      if (!data.artworks.some((a) => a.id === artworkId))
+      const artwork = data.artworks.find((a) => a.id === artworkId);
+      if (!artwork)
         throw new ServiceError("Enregistrez le brouillon avant son image.");
       (data.uploads ??= []).push({
         id,
@@ -103,6 +104,7 @@ export async function createUpload(artworkId: string) {
         status: "pending",
         path: `sources/${id}`,
         createdAt: Date.now(),
+        artworkRevision: artwork.revision,
       });
     });
     return { id, url: `/api/admin/upload?id=${id}`, method: "PUT", demo: true };
@@ -110,7 +112,8 @@ export async function createUpload(artworkId: string) {
   if (isBlob()) {
     const objectPath = `museum/sources/${artworkId}/${id}/source`;
     await mutateBlob((data) => {
-      if (!data.artworks.some((a) => a.id === artworkId))
+      const artwork = data.artworks.find((a) => a.id === artworkId);
+      if (!artwork)
         throw new ServiceError("Enregistrez le brouillon avant son image.");
       (data.uploads ??= []).push({
         id,
@@ -119,6 +122,7 @@ export async function createUpload(artworkId: string) {
         status: "pending",
         path: objectPath,
         createdAt: Date.now(),
+        artworkRevision: artwork.revision,
       });
     });
     return {
@@ -214,9 +218,33 @@ export async function completeUpload(id: string) {
         ),
       );
       return await mutateLocal((store) => {
-        const record = store.uploads!.find((u) => u.id === id)!;
-        const artwork = store.artworks.find((a) => a.id === record.artworkId)!;
+        const record = store.uploads?.find(
+          (u) =>
+            u.id === id && u.ownerId === admin.id && u.status === "pending",
+        );
+        const artwork = store.artworks.find((a) => a.id === record?.artworkId);
+        if (!record || !artwork)
+          throw new ServiceError("Téléversement devenu obsolète.", 409);
+        if (
+          record.artworkRevision !== undefined &&
+          record.artworkRevision !== artwork.revision
+        )
+          throw new ServiceError(
+            "Cette œuvre a été modifiée pendant l’envoi de l’image. Rechargez la version enregistrée avant de réessayer.",
+            409,
+          );
+        const next = resolvePlacement(
+          {
+            ...artwork,
+            imageWidth: decoded.width,
+            imageHeight: decoded.height,
+          },
+          store.artworks,
+          store.rooms,
+          store.settings.collectionRooms,
+        );
         record.status = "ready";
+        Object.assign(artwork, next);
         artwork.mediaId = id;
         artwork.imageWidth = decoded.width;
         artwork.imageHeight = decoded.height;
@@ -228,9 +256,12 @@ export async function completeUpload(id: string) {
       });
     } catch (error) {
       await mutateLocal((store) => {
-        const record = store.uploads!.find((u) => u.id === id)!;
-        record.status = "failed";
-        record.error = "Traitement impossible. Réessayez avec une autre image.";
+        const record = store.uploads?.find((u) => u.id === id);
+        if (record?.status === "pending") {
+          record.status = "failed";
+          record.error =
+            "Traitement impossible. Réessayez avec une autre image.";
+        }
       });
       throw error;
     }
@@ -278,7 +309,26 @@ export async function completeUpload(id: string) {
         );
         if (!record || !artwork)
           throw new ServiceError("Téléversement devenu obsolète.", 409);
+        if (
+          record.artworkRevision !== undefined &&
+          record.artworkRevision !== artwork.revision
+        )
+          throw new ServiceError(
+            "Cette œuvre a été modifiée pendant l’envoi de l’image. Rechargez la version enregistrée avant de réessayer.",
+            409,
+          );
+        const next = resolvePlacement(
+          {
+            ...artwork,
+            imageWidth: decoded.width,
+            imageHeight: decoded.height,
+          },
+          store.artworks,
+          store.rooms,
+          store.settings.collectionRooms,
+        );
         record.status = "ready";
+        Object.assign(artwork, next);
         artwork.mediaId = id;
         artwork.imageWidth = decoded.width;
         artwork.imageHeight = decoded.height;
@@ -346,7 +396,19 @@ export async function completeUpload(id: string) {
     throw error;
   }
 }
-export async function getMedia(id: string, variant: Variant) {
+export async function getMedia(
+  id: string,
+  variant: Variant,
+  direct = false,
+  ifNoneMatch?: string,
+): Promise<{
+  buffer?: Buffer;
+  url?: string;
+  stream?: ReadableStream<Uint8Array>;
+  etag?: string;
+  published?: boolean;
+  notModified?: boolean;
+}> {
   if (!/^[a-zA-Z0-9-]{1,80}$/.test(id))
     throw new ServiceError("Image introuvable.", 404);
   if (isDemo()) {
@@ -355,14 +417,17 @@ export async function getMedia(id: string, variant: Variant) {
     if (!artwork) throw new ServiceError("Image introuvable.", 404);
     if (artwork.publication !== "published") await requireAdmin();
     try {
-      return {
-        buffer: await readFile(
-          /* turbopackIgnore: true */ path.join(
-            localRoot(),
-            "media",
-            `${artwork.mediaId || artwork.id}-${variant}.webp`,
-          ),
+      const buffer = await readFile(
+        /* turbopackIgnore: true */ path.join(
+          localRoot(),
+          "media",
+          `${artwork.mediaId || artwork.id}-${variant}.webp`,
         ),
+      );
+      return {
+        buffer,
+        etag: `"${createHash("sha256").update(buffer).digest("hex")}"`,
+        published: artwork.publication === "published",
       };
     } catch {
       throw new ServiceError("Image introuvable.", 404);
@@ -379,6 +444,29 @@ export async function getMedia(id: string, variant: Variant) {
     );
     if (!upload) throw new ServiceError("Image introuvable.", 404);
     const pathname = `museum/media/${artwork.id}/${upload.id}/${variant}.webp`;
+    if (direct) {
+      // Keep a stable same-origin image URL for both WebGL and the catalogue.
+      // Publication is checked before reading the immutable private media object.
+      const object = await getBlobObject(pathname, {
+        access: "private",
+        useCache: true,
+        ifNoneMatch:
+          artwork.publication === "published" ? ifNoneMatch : undefined,
+      });
+      if (object?.statusCode === 304)
+        return {
+          notModified: true,
+          etag: object.blob.etag,
+          published: artwork.publication === "published",
+        };
+      if (!object || object.statusCode !== 200 || !object.stream)
+        throw new ServiceError("Image introuvable.", 404);
+      return {
+        stream: object.stream,
+        etag: object.blob.etag,
+        published: artwork.publication === "published",
+      };
+    }
     return { url: await createPrivateUrl(pathname, "get") };
   }
   const client = await supabaseSession();
@@ -386,7 +474,8 @@ export async function getMedia(id: string, variant: Variant) {
     artwork_key: id,
     image_variant: variant,
   });
-  if (error || !data) {
+  const published = !error && !!data;
+  if (!published) {
     await requireAdmin();
     const result = await client
       .from("artworks")
@@ -406,5 +495,16 @@ export async function getMedia(id: string, variant: Variant) {
   }
   // Signed URLs are minted only by the privileged server module after publication/role checks.
   const { signApprovedPath } = await import("./signer");
-  return { url: await signApprovedPath(data) };
+  const url = await signApprovedPath(data);
+  if (!direct) return { url };
+  const response = await fetch(url, {
+    cache: "no-store",
+    headers: published && ifNoneMatch ? { "If-None-Match": ifNoneMatch } : {},
+  });
+  const etag = response.headers.get("etag") ?? undefined;
+  if (response.status === 304 && published)
+    return { notModified: true, etag, published };
+  if (!response.ok || !response.body)
+    throw new ServiceError("Image introuvable.", 404);
+  return { stream: response.body, etag, published };
 }

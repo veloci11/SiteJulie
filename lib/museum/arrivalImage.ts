@@ -3,6 +3,7 @@ import path from "node:path";
 import sharp from "sharp";
 import type { PublicData } from "@/lib/data/types";
 import { arrivalFingerprint } from "./arrival";
+import { browserArrivalReady, readBrowserArrival } from "./arrivalStorage";
 
 export const arrivalViews = ["wide", "portrait"] as const;
 export type ArrivalView = (typeof arrivalViews)[number];
@@ -22,6 +23,8 @@ async function capturedImage(
   bundled = bundledArrivalRoot(),
 ) {
   if (!arrivalRooms(data).includes(room)) return null;
+  const browserCapture = await readBrowserArrival(data, room, view, local);
+  if (browserCapture) return browserCapture;
   const fingerprint = arrivalFingerprint(data);
   // The previous manually generated cache remains readable when its exact
   // public hanging matches. Every automatic batch lives in an immutable folder.
@@ -61,6 +64,7 @@ export async function arrivalReady(
   local: string,
   bundled = bundledArrivalRoot(),
 ) {
+  if (await browserArrivalReady(data, local)) return true;
   const rooms = arrivalRooms(data);
   if (!rooms.length || rooms.length !== data.rooms.length) return false;
   return (

@@ -1,10 +1,16 @@
 /* Immersive visit. The artwork viewport keeps its dimensions as panels open. */
 @keyframes visit-panel-return {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 @media (prefers-reduced-motion: no-preference) {
-  .visit-hero, .visit-preview { animation: visit-panel-return 240ms ease-out both; }
+  .visit-hero {
+    animation: visit-panel-return 240ms ease-out both;
+  }
 }
 .visit-shell {
   position: relative;
@@ -39,8 +45,8 @@
   background: #a99b87;
   opacity: 1;
   transition:
-    opacity 1.2s ease,
-    visibility 0s 1.2s;
+    opacity 0.4s ease,
+    visibility 0s 0.4s;
 }
 .visit-arrival img {
   width: 100%;
@@ -1685,66 +1691,6 @@
   }
 }
 
-/* A promenade card is available in every room and immediately after dismissing a focus. */
-.visit-preview {
-  position: absolute;
-  z-index: 3;
-  right: 24px;
-  top: 50%;
-  transform: translateY(-55%);
-  width: 252px;
-  max-height: calc(100% - 260px);
-  overflow: auto;
-  padding: 18px;
-  border: 1px solid #ead8bf45;
-  border-radius: 12px;
-  background: #35291ff0;
-  color: #f5e6d2;
-  box-shadow: 0 12px 42px #25150b22;
-}
-.visit-preview .eyebrow {
-  display: block;
-  font-size: 9px;
-  line-height: 1.5;
-  margin-bottom: 14px;
-}
-.visit-preview-work {
-  width: 100%;
-  text-align: left;
-  color: inherit;
-  display: block;
-}
-.visit-preview-work img {
-  width: 100%;
-  height: 138px;
-  object-fit: contain;
-}
-.visit-preview-title {
-  display: block;
-  font: 400 25px/1.15 var(--serif);
-  margin-top: 14px;
-}
-.visit-preview-price {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  font-size: 11px;
-  margin-top: 9px;
-}
-.visit-preview-description {
-  font-size: 11px;
-  line-height: 1.7;
-  margin-top: 14px;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
-  overflow: hidden;
-  opacity: 0.78;
-}
-.visit-preview .visit-complete {
-  margin-top: 8px;
-  width: 100%;
-}
 .visit-collection-description {
   max-width: 850px;
   line-height: 1.8;
@@ -1769,47 +1715,6 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-@media (max-width: 700px) {
-  .visit-preview {
-    top: auto;
-    bottom: calc(108px + env(safe-area-inset-bottom, 0px));
-    left: 12px;
-    right: 12px;
-    transform: none;
-    width: auto;
-    max-height: 98px;
-    padding: 12px 14px;
-    overflow: hidden;
-  }
-  .visit-preview .eyebrow {
-    font-size: 8px;
-    padding-left: 62px;
-    margin-bottom: 6px;
-  }
-  .visit-preview-work img {
-    position: absolute;
-    width: 48px;
-    height: 62px;
-    left: 14px;
-    top: 14px;
-  }
-  .visit-preview-title {
-    font-size: 20px;
-    margin: 0 0 4px 62px;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-  }
-  .visit-preview-price {
-    margin: 0 0 0 62px;
-    font-size: 10px;
-  }
-  .visit-preview-description,
-  .visit-preview .visit-complete {
-    display: none;
-  }
-}
-
 /* Keep long collection references readable without making the dock grow. */
 .visit-film-title {
   display: -webkit-box;
@@ -1831,20 +1736,7 @@
   font: 12px var(--sans);
   max-width: none;
   flex: 0 0 auto;
-}
-.visit-room-next {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 44px;
-  padding: 0 12px;
-  font: 11px var(--sans);
   margin-right: auto;
-  border-left: 1px solid #f7e7d425;
-}
-.visit-room-next:hover {
-  color: #fff;
-  background: #f7e7d415;
 }
 .visit-series-tabs {
   display: flex;
@@ -2040,11 +1932,6 @@
   .visit-shell .visit-room-switch .visit-room-chevron {
     display: none;
   }
-  .visit-room-next {
-    font-size: 10px;
-    padding: 0 8px;
-    gap: 4px;
-  }
   .visit-work-steps {
     gap: 0;
   }
@@ -2071,9 +1958,6 @@
   }
   .visit-series-tabs button span {
     font-size: 8px;
-  }
-  .visit-shell .visit-preview {
-    bottom: calc(134px + env(safe-area-inset-bottom, 0px));
   }
   .visit-shell .visit-details {
     bottom: calc(132px + env(safe-area-inset-bottom, 0px));
@@ -2149,6 +2033,556 @@
   }
 }
 @media (max-width: 700px) and (max-height: 520px) and (orientation: landscape) {
-  .visit-shell .visit-preview { top: 86px; bottom: auto; right: 15px; left: auto; width: 240px; }
-  .visit-shell .visit-details { bottom: auto; max-height: calc(100dvh - 215px); }
+  .visit-shell .visit-details {
+    bottom: auto;
+    max-height: calc(100dvh - 215px);
+  }
+}
+
+/* Visit controls: readable against every wall, with no transient card over the art. */
+.visit-header {
+  inset: 14px auto auto 50%;
+  transform: translateX(-50%);
+  width: min(1120px, calc(100% - 40px));
+  height: 58px;
+  padding: 0 16px;
+  gap: 18px;
+  background: var(--paper);
+  color: var(--ink);
+  border: 1px solid #b9b09e;
+  border-radius: 8px;
+  box-shadow: 0 3px 16px #35392e1f;
+  text-shadow: none;
+}
+.visit-header .visit-brand {
+  font-size: 24px;
+}
+.visit-header .visit-brand span {
+  font-size: 6px;
+  letter-spacing: 0.16em;
+  margin-top: 5px;
+}
+.visit-header:before {
+  display: none;
+}
+.visit-navigation {
+  gap: 6px;
+}
+.visit-navigation a,
+.visit-navigation button {
+  padding: 8px 12px;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  border-radius: 6px;
+}
+.visit-navigation [aria-current="page"],
+.visit-navigation a:hover,
+.visit-navigation button:hover {
+  background: var(--paper-deep);
+  color: var(--ink);
+}
+.visit-navigation a[aria-current="page"]:after {
+  display: none;
+}
+.visit-catalogue {
+  font-size: 11px;
+  border-radius: 6px;
+}
+.visit-menu {
+  width: auto;
+  padding: 0 9px;
+  gap: 6px;
+  border-radius: 6px;
+}
+.visit-menu span {
+  font-size: 11px;
+}
+.visit-shell :is(button, a):focus-visible {
+  outline: 2px solid #a88755;
+  outline-offset: 3px;
+}
+.visit-dock {
+  background: #352d24f5;
+  backdrop-filter: none;
+  border-color: #f2e5d24d;
+}
+.visit-shell .visit-dock-heading {
+  height: 54px;
+  gap: 6px;
+}
+.visit-browse-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: 6px;
+  font-size: 11px;
+}
+.visit-browse-toggle:hover {
+  background: #f7e7d41c;
+}
+.visit-browse-toggle .is-closed {
+  transform: rotate(180deg);
+}
+#visit-collection-browser[hidden] {
+  display: none;
+}
+.visit-series-tabs {
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.visit-series-tabs button {
+  flex-shrink: 0;
+}
+.visit-filmstrip-row {
+  display: flex;
+  align-items: center;
+  padding: 0 6px 6px;
+}
+.visit-filmstrip-row .visit-filmstrip {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  padding: 8px 4px;
+  scroll-snap-type: x proximity;
+  scrollbar-width: thin;
+  scrollbar-color: #b59a73 transparent;
+}
+.visit-film-card {
+  scroll-snap-align: start;
+}
+.visit-strip-arrow {
+  border-radius: 6px;
+}
+.visit-film-title {
+  font-size: 17px;
+}
+.visit-shell .visit-film-card {
+  flex: 0 0 190px;
+}
+.visit-work-steps {
+  margin-left: 6px;
+  border-left: 1px solid #f7e7d425;
+  padding-left: 6px;
+}
+/* The transit action lives above the scene, never underneath the collection dock. */
+.visit-shell .visit-travel {
+  z-index: 5;
+  top: 98px;
+  bottom: auto;
+  max-width: calc(100% - 48px);
+  background: #352d24f5;
+  backdrop-filter: none;
+  white-space: normal;
+  border: 1px solid #ead8bf45;
+  border-radius: 10px;
+  padding: 6px 12px;
+}
+.visit-travel button {
+  min-height: 36px;
+  flex-shrink: 0;
+  font-size: 11px;
+}
+.visit-shell .visit-dock.is-compact {
+  width: min(880px, calc(100% - 48px));
+}
+.visit-hero.is-room-label .eyebrow {
+  background: #f7f2e9ed;
+  color: #493f32;
+  padding: 10px 14px;
+  border-radius: 4px;
+}
+@media (max-width: 800px) {
+  .visit-header {
+    top: calc(10px + env(safe-area-inset-top, 0px));
+    width: calc(100% - 20px);
+    height: 52px;
+    padding: 0 10px;
+    gap: 8px;
+  }
+}
+@media (max-width: 700px) {
+  .visit-header .visit-brand {
+    font-size: 22px;
+  }
+  .visit-brand span {
+    font-size: 6px;
+    letter-spacing: 0.12em;
+  }
+  .visit-shell .visit-dock {
+    left: 10px;
+    right: 10px;
+    width: auto;
+    overflow: hidden;
+  }
+  .visit-shell .visit-dock-heading {
+    padding: 0 6px;
+    gap: 0;
+  }
+  .visit-shell .visit-room-switch {
+    flex: 0 1 auto;
+    margin-right: 0;
+    font-size: 10px;
+    min-width: 44px;
+  }
+  .visit-room-switch span {
+    display: none !important;
+  }
+  .visit-browse-toggle {
+    margin-right: auto;
+    padding: 0 8px;
+    font-size: 11px;
+    gap: 5px;
+  }
+  .visit-work-step {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .visit-work-steps {
+    margin-left: 3px;
+    padding-left: 3px;
+  }
+  .visit-series-tabs {
+    gap: 16px;
+  }
+  .visit-series-tabs button {
+    flex: 0 0 auto;
+    min-height: 46px;
+    flex-direction: row;
+    align-items: center;
+    gap: 7px;
+    font-size: 16px;
+  }
+  .visit-series-tabs button span {
+    font-size: 9px;
+  }
+  .visit-strip-arrow {
+    width: 30px;
+    height: 56px;
+  }
+  .visit-shell .visit-film-card {
+    flex-basis: 176px;
+    min-height: 78px;
+  }
+  .visit-shell .visit-details {
+    bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+  }
+  .visit-shell .visit-travel {
+    top: calc(128px + env(safe-area-inset-top, 0px));
+    max-width: calc(100% - 24px);
+    width: max-content;
+    font-size: 11px;
+  }
+  .visit-travel button {
+    font-size: 10px;
+  }
+}
+@media (max-height: 520px) and (orientation: landscape) {
+  .visit-header {
+    top: calc(8px + env(safe-area-inset-top, 0px));
+    height: 50px;
+  }
+  .visit-shell .visit-details {
+    top: 76px;
+    bottom: auto;
+    max-height: calc(100dvh - 150px);
+  }
+  .visit-shell .visit-travel {
+    top: 76px;
+    left: auto;
+    right: 15px;
+    transform: none;
+    max-width: 55%;
+  }
+  .visit-shell .visit-filmstrip-row {
+    display: none;
+  }
+  .visit-shell .visit-series-tabs button {
+    min-height: 36px;
+  }
+}
+@media (max-width: 700px) {
+  .visit-shell .visit-dock.is-compact {
+    width: auto;
+  }
+  .visit-shell .visit-room-switch > svg {
+    display: block;
+  }
+  .visit-header-actions .visit-menu {
+    width: auto;
+  }
+  .visit-menu svg {
+    flex-shrink: 0;
+  }
+}
+
+/* Collection names describe the room; tabs only choose its displayed thumbnails. */
+.visit-collections-row {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 0 20px;
+  border-top: 1px solid #f7e7d430;
+}
+.visit-collections-label {
+  flex: none;
+  color: var(--paper);
+  font: 11px var(--sans);
+}
+.visit-collections-row .visit-series-tabs {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border-top: 0;
+}
+@media (max-width: 700px) {
+  .visit-collections-row {
+    gap: 12px;
+    padding: 0 12px;
+  }
+  .visit-collections-label {
+    font-size: 10px;
+  }
+}
+
+/* The automatic visit names the painting actually in view, above the controls. */
+.visit-auto-preview {
+  position: absolute;
+  z-index: 5;
+  right: 24px;
+  top: 50%;
+  transform: translateY(-50%);
+  max-height: calc(100% - var(--preview-bottom) * 2);
+  width: 280px;
+  display: block;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 18px;
+  color: #f7e7d4;
+  background: #352d24f5;
+  border: 1px solid #f2e5d24d;
+  border-radius: 12px;
+  box-shadow: 0 10px 36px #24180e30;
+  text-align: left;
+}
+.visit-auto-preview:hover {
+  border-color: #e9ca9b;
+}
+.visit-auto-preview-collection {
+  display: block;
+  font: 9px/1.5 var(--sans);
+  letter-spacing: 0.05em;
+  margin-bottom: 14px;
+}
+.visit-auto-preview img {
+  width: 100%;
+  height: 144px;
+  object-fit: contain;
+}
+.visit-auto-preview-copy {
+  display: grid;
+  gap: 9px;
+  margin-top: 14px;
+}
+.visit-auto-preview-copy strong {
+  font: 400 25px/1.1 var(--serif);
+}
+.visit-auto-preview-copy > span {
+  font: 11px var(--sans);
+}
+.visit-auto-preview-description {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  font: 11px/1.7 var(--sans);
+  color: #ded1c0;
+  margin-top: 13px;
+}
+.visit-auto-preview-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font: 11px var(--sans);
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid #f2e5d22e;
+}
+@media (max-width: 700px), (max-height: 520px) and (orientation: landscape) {
+  .visit-auto-preview {
+    right: 10px;
+    top: auto;
+    bottom: var(--preview-bottom);
+    transform: none;
+    max-height: calc(100% - var(--preview-bottom) - 86px);
+    width: calc(100% - 20px);
+    display: grid;
+    grid-template-columns: 70px minmax(0, 1fr);
+    gap: 5px 14px;
+    padding: 13px 14px;
+  }
+  .visit-auto-preview img {
+    grid-column: 1;
+    grid-row: 1 / 4;
+    height: 90px;
+    align-self: center;
+  }
+  .visit-auto-preview-collection {
+    grid-column: 2;
+    margin: 0;
+    font-size: 8px;
+  }
+  .visit-auto-preview-copy {
+    grid-column: 2;
+    margin: 0;
+    gap: 5px;
+  }
+  .visit-auto-preview-copy strong {
+    font-size: 22px;
+  }
+  .visit-auto-preview-copy > span {
+    font-size: 10px;
+  }
+  .visit-auto-preview-description {
+    display: none;
+  }
+  .visit-auto-preview-action {
+    grid-column: 2;
+    margin: 0;
+    padding: 5px 0 0;
+    font-size: 10px;
+    border: 0;
+  }
+}
+@media (max-height: 520px) and (orientation: landscape) {
+  .visit-auto-preview {
+    width: 300px;
+    right: 14px;
+    padding: 10px 12px;
+  }
+  .visit-auto-preview img {
+    height: 76px;
+  }
+}
+
+.visit-loading-hint {
+  position: absolute;
+  z-index: 3;
+  top: 78%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 11px;
+  padding: 14px 20px;
+  border-radius: 28px;
+  background: var(--paper);
+  border: 1px solid #a79b87;
+  box-shadow: 0 5px 24px #24180e26;
+  color: var(--ink);
+  font: 500 13px var(--sans);
+  white-space: nowrap;
+  pointer-events: none;
+}
+.visit-loading-spinner {
+  width: 17px;
+  height: 17px;
+  border: 2px solid #35392e33;
+  border-top-color: var(--ink);
+  border-radius: 50%;
+  animation: visit-loading-spin 0.9s linear infinite;
+}
+@keyframes visit-loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .visit-loading-spinner {
+    animation: none;
+  }
+}
+
+/* Keep browsing available while a painting is in focus. */
+@media (max-width: 700px), (max-height: 520px) and (orientation: landscape) {
+  .visit-shell.is-artwork .visit-details {
+    bottom: var(--dock-clearance, 240px);
+  }
+  .visit-shell.is-artwork .visit-dock-heading {
+    height: 44px;
+  }
+  .visit-shell.is-artwork .visit-film-card {
+    flex-basis: 154px;
+    min-height: 60px;
+  }
+  .visit-shell.is-artwork .visit-film-card img {
+    height: 48px;
+    width: 44px;
+  }
+  .visit-shell.is-artwork .visit-film-title {
+    font-size: 15px;
+  }
+  .visit-shell.is-artwork .visit-film-price,
+  .visit-shell.is-artwork .visit-film-status {
+    display: none;
+  }
+  .visit-shell.is-artwork .visit-filmstrip-row .visit-filmstrip {
+    padding-block: 4px;
+  }
+  .visit-shell.is-artwork .visit-strip-arrow {
+    min-width: 44px;
+  }
+  .visit-shell.is-artwork .visit-filmstrip {
+    overscroll-behavior-x: contain;
+  }
+  .visit-shell.is-artwork .visit-details h2 {
+    padding-right: 40px;
+  }
+}
+@media (max-height: 520px) and (orientation: landscape) {
+  .visit-shell.is-artwork .visit-filmstrip-row {
+    display: flex;
+  }
+  .visit-shell.is-artwork .visit-details {
+    top: 76px;
+    height: auto;
+    max-height: none;
+    overflow-y: auto;
+    padding: 8px 12px;
+  }
+  .visit-shell.is-artwork .visit-details h2 {
+    font-size: 21px;
+  }
+  .visit-shell.is-artwork .visit-price {
+    font-size: 15px;
+    margin-top: 3px;
+  }
+  .visit-shell.is-artwork .visit-detail-actions {
+    margin-top: 4px;
+  }
+}
+
+.visit-other-collections {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  margin-top: 8px;
+  padding: 10px 14px;
+  border-radius: 6px;
+  border: 1px solid #b9b09e;
+  background: var(--paper);
+  color: var(--ink);
+  font: 500 12px var(--sans);
+  pointer-events: auto;
+}
+.visit-other-collections:hover {
+  background: #e9e2d5;
+}
+.visit-hero.is-room-label > .eyebrow {
+  display: block;
 }

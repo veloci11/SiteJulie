@@ -27,7 +27,7 @@ export interface Artwork {
   /** Metres in the wall-local horizontal/up axes; omitted legacy values mean zero. */
   placementOffsetX?: number;
   placementOffsetY?: number;
-  /** Presentation scale; declared dimensions and source images are unchanged. */
+  /** 0.01–1 of the zone anchor's maximum image size, independent of catalogue dimensions. */
   displayScale?: number;
   order: number;
   collection: string;

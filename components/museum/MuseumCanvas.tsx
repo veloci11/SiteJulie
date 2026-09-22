@@ -20,7 +20,9 @@ class SceneBoundary extends Component<
     return this.state.failed ? null : this.props.children;
   }
 }
-export default function MuseumCanvas(props: MuseumProps) {
+export default function MuseumCanvas(
+  props: MuseumProps & { captureBuffer?: boolean },
+) {
   // Canvas configuration is the sole DPR owner. Fiber reapplies this prop on
   // parent renders, so an imperative setDpr inside the scene would be overwritten.
   const [pixelRatio, setPixelRatio] = useState(1);
@@ -38,6 +40,7 @@ export default function MuseumCanvas(props: MuseumProps) {
         }}
         gl={{
           antialias: true,
+          preserveDrawingBuffer: props.captureBuffer ?? false,
           alpha: false,
           powerPreference: "high-performance",
           toneMapping: ACESFilmicToneMapping,
@@ -66,7 +69,11 @@ export default function MuseumCanvas(props: MuseumProps) {
         }}
       >
         <Suspense fallback={null}>
-          <MuseumScene {...props} onPixelRatio={setPixelRatio} />
+          <MuseumScene
+            {...props}
+            captureAllRooms={props.captureBuffer}
+            onPixelRatio={setPixelRatio}
+          />
         </Suspense>
       </Canvas>
     </SceneBoundary>

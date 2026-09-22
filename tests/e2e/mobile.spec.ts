@@ -69,7 +69,7 @@ for (const viewport of [
     );
     await expectInsideViewport(page.locator(".visit-room-switch"), page);
     await expect(
-      page.getByRole("link", { name: "Catalogue classique", exact: true }),
+      page.getByRole("link", { name: "Voir le catalogue", exact: true }),
     ).toHaveAttribute("href", "/oeuvres/oeuvre-08");
     await page.screenshot({
       path: `docs/captures/artwork-mobile-${viewport.width}x${viewport.height}.png`,
@@ -141,7 +141,7 @@ for (const viewport of [
     ).toBeVisible();
     await expect(canvas).toHaveAttribute("data-navigation-state", "arrived");
     await page
-      .getByRole("link", { name: "Catalogue classique", exact: true })
+      .getByRole("link", { name: "Voir le catalogue", exact: true })
       .click();
     await expect(page).toHaveURL("/oeuvres/oeuvre-05");
     await expect(page.locator(".artwork-original img")).toBeVisible();

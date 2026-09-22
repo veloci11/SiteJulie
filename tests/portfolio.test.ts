@@ -7,6 +7,7 @@ import {
 } from "../lib/validation/artwork";
 import { groupCollections } from "../lib/data/collections";
 import { priceLabel } from "../lib/public";
+import { normalizeZoneArtwork } from "../lib/museum/zones";
 
 const artworks = source.artworks.map((a) =>
   artworkSchema.parse({
@@ -45,7 +46,9 @@ describe("reviewed Julie portfolio", () => {
       ),
     ).toEqual([14, 12]);
     for (const a of artworks)
-      expect(resolvePlacement(a, artworks, source.rooms).slotId).toBe(a.slotId);
+      expect(resolvePlacement(a, artworks, source.rooms)).toEqual(
+        normalizeZoneArtwork(a),
+      );
   });
   it("preserves private-collection captions without inventing sales, prices or physical dimensions", () => {
     const privateWorks = artworks.filter(

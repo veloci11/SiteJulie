@@ -7,7 +7,7 @@ export default defineConfig({
   expect: { timeout: 20000 },
   reporter: [["list"], ["html", { open: "never" }]],
   use: {
-    baseURL: "http://127.0.0.1:3000",
+    baseURL: process.env.MUSEUM_QA_URL || "http://127.0.0.1:3000",
     viewport: { width: 1440, height: 900 },
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
@@ -19,10 +19,12 @@ export default defineConfig({
           : ["--use-angle=swiftshader", "--enable-unsafe-swiftshader"],
     },
   },
-  webServer: {
-    command: "npm run dev",
-    url: "http://127.0.0.1:3000",
-    reuseExistingServer: true,
-    timeout: 120000,
-  },
+  webServer: process.env.MUSEUM_QA_URL
+    ? undefined
+    : {
+        command: "npm run dev",
+        url: "http://127.0.0.1:3000",
+        reuseExistingServer: true,
+        timeout: 120000,
+      },
 });

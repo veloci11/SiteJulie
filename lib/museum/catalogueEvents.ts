@@ -2,6 +2,7 @@ export const CATALOGUE_CHANGED = "museum-catalogue-changed";
 
 /** A refresh signal only: never put artwork payloads or credentials in storage. */
 export function notifyCatalogueChanged() {
+  window.dispatchEvent(new Event(CATALOGUE_CHANGED));
   try {
     localStorage.setItem(CATALOGUE_CHANGED, crypto.randomUUID());
   } catch {

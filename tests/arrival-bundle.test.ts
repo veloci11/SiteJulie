@@ -1,7 +1,8 @@
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { expect, it } from "vitest";
+import { expect, it, vi } from "vitest";
+vi.mock("@vercel/blob", () => ({get: vi.fn(async () => null)}));
 import type { AdminArtwork, PublicData } from "@/lib/data/types";
 import { publicArtwork } from "@/lib/validation/artwork";
 import { arrivalFingerprint } from "@/lib/museum/arrival";

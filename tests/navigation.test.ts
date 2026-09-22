@@ -363,15 +363,19 @@ describe("Two intimate rooms and mobile navigation", () => {
     }
   });
   it("uses a real landscape rectangle on a 667 by 375 phone", () => {
-    expect(artworkInsets(390, 844)).toEqual({ top: 88, bottom: 252, right: 0 });
+    expect(artworkInsets(390, 844)).toEqual({
+      top: 128,
+      bottom: 224,
+      right: 0,
+    });
     expect(artworkInsets(667, 375)).toEqual({
-      top: 64,
-      bottom: 124,
+      top: 120,
+      bottom: 90,
       right: 266.8,
     });
     expect(artworkInsets(1440, 900)).toEqual({
       top: 96,
-      bottom: 210,
+      bottom: 90,
       right: 330,
     });
   });
@@ -1381,7 +1385,7 @@ describe("Full painting and cartel framing", () => {
     for (const [width, height] of viewports)
       for (const roomId of data.rooms)
         for (const index of [0, 1, 3, 4, 5, 7, 8, 9, 11])
-          for (const scale of [0.35, 0.6, 1]) {
+          for (const scale of [0.1, 0.35, 0.6, 1]) {
             const artwork = {
               ...art(index, [0.6, 1, 2.2][index % 3], roomId),
               displayScale: scale,
@@ -1777,4 +1781,93 @@ it("does not overshoot a nearby loop after cancelling just after an artwork sele
       expect(motion.duration).toBeLessThan(12);
     }
   }
+});
+
+describe("Expanded artwork browser framing", () => {
+  it("fits every frame inside the space above an expanded dock and beside the artwork details", () => {
+    const obstacles = obstaclesForRooms(data.rooms);
+    let opticalAdjustments = 0;
+    for (const [width, height] of [
+      [320, 568],
+      [390, 844],
+      [667, 375],
+      [320, 1400],
+      [800, 2000],
+      [1440, 900],
+      [978, 878],
+    ]) {
+      for (const roomId of data.rooms)
+        for (const index of [0, 3, 4, 7, 8, 9, 11])
+          for (const ratio of [0.45, 1, 2.2]) {
+            const a = art(index, ratio, roomId),
+              slot = slotForArtwork(a)!,
+              size = artworkSize(a, slot);
+            const portrait = width <= 700 && height > width;
+            const inset = {
+              top: portrait ? 128 : 96,
+              bottom: portrait ? 340 : 230,
+              right: portrait ? 16 : 330,
+              left: 16,
+            };
+            const pose = artworkPose(a, width, height, inset);
+            expect(Math.abs(pose.position[0])).toBeLessThanOrEqual(5.25 + 1e-8);
+            expect(
+              Math.abs(pose.position[2] - roomOffset(roomId)),
+            ).toBeLessThanOrEqual(8.25 + 1e-8);
+            expect(
+              segmentIsClear(pose.position, pose.position, obstacles),
+            ).toBe(true);
+            if (pose.fov! > CAMERA_FOV) opticalAdjustments++;
+            const camera = new PerspectiveCamera(
+              pose.fov,
+              width / height,
+              0.1,
+              120,
+            );
+            camera.position.fromArray(pose.position);
+            camera.lookAt(new Vector3(...pose.target));
+            camera.setViewOffset(
+              width,
+              height,
+              pose.offsetPx,
+              pose.offsetYPx,
+              width,
+              height,
+            );
+            camera.updateMatrixWorld();
+
+            for (const x of [-1, 1])
+              for (const y of [-1, 1]) {
+                const corner = new Vector3(
+                  slot.position[0] +
+                    slot.wallNormal[0] * FRAME_FRONT_DEPTH +
+                    (Math.cos(slot.rotationY) *
+                      x *
+                      (size.width + FRAME_OUTSET)) /
+                      2,
+                  slot.position[1] + (y * (size.height + FRAME_OUTSET)) / 2,
+                  slot.position[2] +
+                    slot.wallNormal[2] * FRAME_FRONT_DEPTH -
+                    (Math.sin(slot.rotationY) *
+                      x *
+                      (size.width + FRAME_OUTSET)) /
+                      2,
+                ).project(camera);
+                expect(((corner.x + 1) * width) / 2).toBeGreaterThan(
+                  inset.left,
+                );
+                expect(((corner.x + 1) * width) / 2).toBeLessThan(
+                  width - inset.right,
+                );
+                expect(((1 - corner.y) * height) / 2).toBeGreaterThan(
+                  inset.top,
+                );
+                expect(((1 - corner.y) * height) / 2).toBeLessThan(
+                  height - inset.bottom,
+                );
+              }
+          }
+    }
+    expect(opticalAdjustments).toBeGreaterThan(0);
+  });
 });

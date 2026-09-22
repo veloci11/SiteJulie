@@ -31,7 +31,13 @@ import {
   createCollection,
   saveSettings,
 } from "@/lib/data/repository";
-import { getMedia, processImage } from "@/lib/media/service";
+import {
+  getMedia,
+  processImage,
+  createUpload,
+  putLocalUpload,
+  completeUpload,
+} from "@/lib/media/service";
 import type { AdminArtwork } from "@/lib/data/types";
 import { getSlots } from "@/lib/museum/config";
 import {
@@ -155,7 +161,7 @@ describe("Server permissions and persistence", () => {
       saveArtwork({ ...fixture, image: "https://remote.invalid/source.jpg" }),
     ).rejects.toThrow("serveur");
   });
-  it("skips a free wall that is too small when a compatible center wall exists", () => {
+  it("fits the showroom independently of the dimensions declared in the description", () => {
     const slots = getSlots("room-1");
     const center = slots.find((slot) => slot.id === "room-1-slot-10")!;
     const widthCm = (slots[0].maxWidthM + center.maxWidthM) * 50;
@@ -170,7 +176,7 @@ describe("Server permissions and persistence", () => {
       heightCm: 200,
     };
     expect(resolvePlacement(large, [], ["room-1"]).slotId).toBe(
-      "room-1-slot-10",
+      "room-1-slot-01",
     );
   });
   it("refuses occupied slots and requires explicit room extension", async () => {
@@ -223,6 +229,59 @@ describe("Server permissions and persistence", () => {
   });
 });
 describe("Actual image decoding", () => {
+  async function pendingImage(width = 120, height = 180) {
+    const token = await createUpload(fixture.id);
+    const buffer = await sharp({
+      create: { width, height, channels: 3, background: "#ab465d" },
+    })
+      .png()
+      .toBuffer();
+    await putLocalUpload(
+      token.id,
+      new Request("http://127.0.0.1:3000/api/admin/upload", {
+        method: "PUT",
+        body: new Uint8Array(buffer),
+      }),
+    );
+    return token.id;
+  }
+  it("keeps a new image private with its draft and finalizes it only once", async () => {
+    await enterDemo();
+    await saveArtwork({ ...fixture, publication: "draft" });
+    const id = await pendingImage();
+    const saved = await completeUpload(id);
+    expect(saved).toMatchObject({
+      publication: "draft",
+      mediaId: id,
+      imageWidth: 120,
+      imageHeight: 180,
+      revision: 3,
+    });
+    await expect(completeUpload(id)).rejects.toMatchObject({ status: 404 });
+    session.cookies.clear();
+    await expect(getMedia(fixture.id, "room")).rejects.toMatchObject({
+      status: 401,
+    });
+  });
+  it("does not replace the image after another edit during the upload", async () => {
+    await enterDemo();
+    const id = await pendingImage();
+    const edited = await saveArtwork({ ...fixture, title: "Autre onglet" });
+    await expect(completeUpload(id)).rejects.toMatchObject({ status: 409 });
+    expect((await getAdminData()).artworks[0]).toEqual(edited);
+  });
+  it("preserves the published image when a new ratio no longer fits the wall", async () => {
+    await enterDemo();
+    const saved = await saveArtwork({
+      ...fixture,
+      widthCm: 100,
+      displayScale: 0.6,
+      placementOffsetX: 0.5,
+    });
+    const id = await pendingImage(2000, 100);
+    await expect(completeUpload(id)).rejects.toThrow("cadre");
+    expect((await getAdminData()).artworks[0]).toEqual(saved);
+  });
   it("refuses disguised non-images and SVG", async () => {
     await expect(processImage(Buffer.from("not an image"))).rejects.toThrow();
     await expect(
@@ -430,6 +489,6 @@ describe("Collection creation", () => {
         ["room-1", "room-2"],
         { New: "room-2" },
       ),
-    ).toThrow("Aucun emplacement");
+    ).toThrow("Aucune zone");
   });
 });

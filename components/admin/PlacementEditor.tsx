@@ -11,17 +11,22 @@ import {
 } from "@/lib/museum/config";
 import {
   dragPlacementOffsets,
+  safePlacementOffsets,
+  findZonePlacement,
   placementIssue,
   placementLimits,
   wallCoordinate,
   wallKey,
 } from "@/lib/validation/placement";
-const WALLS = [
-  { id: 1, label: "Mur gauche" },
-  { id: 3, label: "Mur droit" },
-  { id: 0, label: "Mur du fond" },
-  { id: 2, label: "Mur d’entrée" },
-];
+import RoomPlan from "./RoomPlan";
+import ShowroomSize, {
+  ResizeHandle,
+  MovementZone,
+  previewImageStyle,
+  previewSlotStyle,
+} from "./ShowroomSize";
+import { WALL_GUIDES, slotCode } from "@/lib/admin/placement-guide";
+import { getZones, normalizeZoneArtwork } from "@/lib/museum/zones";
 type Props = {
   artwork: AdminArtwork;
   artworks: AdminArtwork[];
@@ -36,10 +41,12 @@ export default function PlacementEditor({
   collectionRooms,
   onChange,
 }: Props) {
-  const slots = getSlots(artwork.roomId);
+  const slots = getZones(artwork.roomId);
   const selected = slots.find((s) => s.id === artwork.slotId);
   const [wall, setWall] = useState(selected ? wallKey(selected) : 1);
   const [dragging, setDragging] = useState(false);
+  const [automaticError, setAutomaticError] = useState("");
+  const [resetVersion, setResetVersion] = useState(0);
   const drag = useRef<{
     id: number;
     slotId: string;
@@ -52,7 +59,9 @@ export default function PlacementEditor({
   } | null>(null);
   function beginDrag(event: PointerEvent<HTMLSpanElement>, slot: ArtworkSlot) {
     if (event.button !== 0 || slot.id !== artwork.slotId) return;
-    const zone = event.currentTarget.parentElement!.getBoundingClientRect();
+    const board = event.currentTarget
+      .closest(".admin-wall-preview")!
+      .getBoundingClientRect();
     drag.current = {
       id: event.pointerId,
       slotId: slot.id,
@@ -60,8 +69,8 @@ export default function PlacementEditor({
       startY: event.clientY,
       x: artwork.placementOffsetX ?? 0,
       y: artwork.placementOffsetY ?? 0,
-      width: zone.width,
-      height: zone.height,
+      width: ((board.width - 2) / extent) * (slot.maxWidthM + FRAME_OUTSET),
+      height: ((board.height - 2) / 4.2) * (slot.maxHeightM + FRAME_OUTSET),
     };
     event.currentTarget.setPointerCapture(event.pointerId);
     event.preventDefault();
@@ -76,12 +85,17 @@ export default function PlacementEditor({
     event.stopPropagation();
     onChange({
       ...artwork,
-      ...dragPlacementOffsets(
+      ...safePlacementOffsets(
         artwork,
         slot,
-        { x: start.x, y: start.y },
-        { x: event.clientX - start.startX, y: event.clientY - start.startY },
-        start,
+        dragPlacementOffsets(
+          artwork,
+          slot,
+          { x: start.x, y: start.y },
+          { x: event.clientX - start.startX, y: event.clientY - start.startY },
+          start,
+        ),
+        artworks,
       ),
     });
   }
@@ -97,28 +111,23 @@ export default function PlacementEditor({
     const next = getSlots(artwork.roomId).find((s) => s.id === artwork.slotId);
     if (next) setWall(wallKey(next));
   }, [artwork.roomId, artwork.slotId]);
-  useEffect(() => {
-    if (artwork.slotId || !artwork.image || !artwork.alt.trim()) return;
-    try {
-      const placed = resolvePlacement(
-        { ...artwork, publication: "published" },
-        artworks,
-        rooms,
-        collectionRooms,
-      );
-      onChange({ ...placed, publication: artwork.publication });
-    } catch {
-      /* The server returns the actionable error if no safe position exists. */
-    }
-  }, [artwork, artworks, rooms, collectionRooms, onChange]);
-  const peers = artworks.filter(
-    (a) => a.id !== artwork.id && a.publication === "published",
-  );
+  const peers = artworks
+    .filter((a) => a.id !== artwork.id && a.publication === "published")
+    .map(normalizeZoneArtwork);
   const allowedRoom = (room: string) =>
     collectionFitsRoom(artwork, artworks, room, collectionRooms);
   const occupied = (slot: ArtworkSlot) =>
     peers.find((a) => a.slotId === slot.id);
-  const shown = slots.filter((s) => wallKey(s) === wall);
+  const shown = slots
+    .filter((s) => wallKey(s) === wall)
+    .sort(
+      (a, b) =>
+        wallCoordinate(a) - wallCoordinate(b) || b.position[1] - a.position[1],
+    );
+  const viewedGuide = WALL_GUIDES.find((entry) => entry.id === wall)!;
+  const selectedGuide = selected
+    ? WALL_GUIDES.find((entry) => entry.id === wallKey(selected))!
+    : null;
   const left =
     Math.min(
       ...shown.map((s) => wallCoordinate(s) - (s.maxWidthM + FRAME_OUTSET) / 2),
@@ -131,36 +140,20 @@ export default function PlacementEditor({
   const limits = selected ? placementLimits(artwork, selected) : null;
   const issue = selected ? placementIssue(artwork, selected, artworks) : null;
   function choose(slot: ArtworkSlot) {
-    onChange({
-      ...artwork,
-      roomId: slot.roomId,
-      slotId: slot.id,
-      placementOffsetX: 0,
-      placementOffsetY: 0,
-    });
-  }
-  function rescale(value: number) {
-    const next = { ...artwork, displayScale: value };
-    if (selected) {
-      const bounds = placementLimits(next, selected);
-      const horizontal = Math.floor(bounds.horizontal * 100) / 100;
-      const vertical = Math.floor(bounds.vertical * 100) / 100;
-      next.placementOffsetX = Math.max(
-        -horizontal,
-        Math.min(horizontal, next.placementOffsetX ?? 0),
+    if (slot.id === selected?.id) return;
+    setAutomaticError("");
+    const fitted = findZonePlacement(artwork, slot, artworks, true);
+    if (fitted) onChange(fitted);
+    else
+      setAutomaticError(
+        "Impossible dans cette zone : pas assez de place pour garder un petit côté d’au moins 25 cm. Les œuvres présentes restent inchangées.",
       );
-      next.placementOffsetY = Math.max(
-        -vertical,
-        Math.min(vertical, next.placementOffsetY ?? 0),
-      );
-    }
-    onChange(next);
   }
   return (
     <div className="admin-placement">
       <p>
-        Choisissez un mur, puis une zone libre. Le cadre et les tableaux voisins
-        restent visibles pendant vos réglages.
+        Repérez le mur sur le plan, puis choisissez une place libre. Regarder un
+        autre mur ne déplace pas votre tableau.
       </p>
       <p className="admin-placement-room">
         <strong>
@@ -176,176 +169,262 @@ export default function PlacementEditor({
           automatique.
         </p>
       )}
-      <div className="admin-wall-tabs" aria-label="Choisir le mur">
-        {WALLS.map((w) => (
-          <button
-            type="button"
-            key={w.id}
-            aria-pressed={wall === w.id}
-            onClick={() => setWall(w.id)}
-          >
-            <svg viewBox="0 0 100 30" aria-hidden="true">
-              <rect x="1" y="1" width="98" height="28" rx="2" fill="#e9e3d7" />
-              {slots
-                .filter((s) => wallKey(s) === w.id)
-                .map((s, i, group) => (
-                  <rect
-                    key={s.id}
-                    x={5 + (i * 90) / group.length}
-                    y="6"
-                    width={78 / group.length}
-                    height="18"
-                    rx="1"
-                    fill={
-                      s.id === artwork.slotId
-                        ? "#546346"
-                        : occupied(s)
-                          ? "#b1a18c"
-                          : "#fcfaf5"
-                    }
-                    stroke="#bfb6a7"
-                  />
-                ))}
-            </svg>
-            {w.label}
-          </button>
-        ))}
+      <RoomPlan
+        roomId={artwork.roomId}
+        rooms={rooms}
+        slots={slots}
+        selected={selected}
+        viewedWall={wall}
+        occupied={occupied}
+        onView={setWall}
+      />
+      <div className="admin-placement-choice" role="status">
+        <span>Emplacement choisi</span>
+        <strong>
+          {selected
+            ? `Salle ${artwork.roomId.replace("room-", "")} · ${selectedGuide!.code} · ${selectedGuide!.label} · ${slotCode(selected)}`
+            : "Automatique · attribué à la publication"}
+        </strong>
+        {selected && wallKey(selected) !== wall && (
+          <>
+            <p>
+              Vous regardez le mur {viewedGuide.code}. Votre tableau reste à
+              l’emplacement {slotCode(selected)}.
+            </p>
+            <button
+              type="button"
+              className="admin-text-button"
+              onClick={() => setWall(wallKey(selected))}
+            >
+              Revenir au tableau
+            </button>
+          </>
+        )}
       </div>
+      <p className="admin-wall-key">
+        Pointillés : zone autorisée · Bleu : tableau sélectionné. Les cadres
+        voisins bloquent le déplacement.
+      </p>
+      <header className="admin-wall-heading">
+        <h4>
+          2. {viewedGuide.code} · {viewedGuide.label} — vue de face
+        </h4>
+        <p>
+          Les repères ci-dessous correspondent au plan. Les vignettes vous
+          permettent de reconnaître les tableaux voisins.
+        </p>
+      </header>
+      <p className="admin-help">
+        Chaque zone accueille plusieurs œuvres. Seul le tableau ajouté est
+        adapté à l’espace disponible.
+      </p>
       <div
         className="admin-wall-preview"
         style={{
           aspectRatio: `${extent} / 4.2`,
           maxWidth: `${(extent / 4.2) * 320}px`,
         }}
-        aria-label={`Aperçu ${WALLS.find((w) => w.id === wall)?.label.toLowerCase()}`}
+        aria-label={`Aperçu ${viewedGuide.code} · ${viewedGuide.label}`}
       >
         <span className="admin-wall-floor" aria-hidden="true" />
-        {shown.map((slot) => {
-          const other = occupied(slot);
-          const isSelected = selected?.id === slot.id;
-          const displayed = isSelected ? artwork : other;
-          const size = displayed ? artworkSize(displayed, slot) : null;
-          const x = ((wallCoordinate(slot) - left) / extent) * 100;
-          const cellWidth = ((slot.maxWidthM + FRAME_OUTSET) / extent) * 100;
-          return (
-            <button
-              key={slot.id}
-              type="button"
-              className={`admin-wall-slot${isSelected ? " selected" : ""}${other ? " occupied" : ""}`}
-              disabled={Boolean(other) || !allowedRoom(artwork.roomId)}
-              aria-pressed={isSelected}
-              title={other ? `${slot.label} · ${other.title}` : undefined}
-              aria-label={`${slot.label}${other ? ` · occupé par ${other.title}` : " · emplacement libre"}`}
-              onClick={() => choose(slot)}
-              style={{
-                left: `${x - cellWidth / 2}%`,
-                width: `${cellWidth}%`,
-                top: `${((4.2 - slot.position[1] - (slot.maxHeightM + FRAME_OUTSET) / 2) / 4.2) * 100}%`,
-                height: `${((slot.maxHeightM + FRAME_OUTSET) / 4.2) * 100}%`,
-              }}
-            >
-              {displayed && size ? (
-                <span
-                  className={`admin-wall-artwork ${displayed.availability === "sold" ? "sold" : ""}${isSelected ? " is-draggable" : ""}`}
-                  data-dragging={isSelected && dragging ? "true" : undefined}
-                  title={
-                    isSelected
-                      ? "Glissez pour déplacer le tableau. Les champs en centimètres restent disponibles."
-                      : undefined
-                  }
-                  onPointerDown={
-                    isSelected ? (event) => beginDrag(event, slot) : undefined
-                  }
-                  onPointerMove={
-                    isSelected ? (event) => moveDrag(event, slot) : undefined
-                  }
-                  onPointerUp={isSelected ? endDrag : undefined}
-                  onPointerCancel={isSelected ? endDrag : undefined}
-                  onLostPointerCapture={isSelected ? endDrag : undefined}
-                  onClick={
-                    isSelected
-                      ? (event) => {
-                          event.preventDefault();
-                          event.stopPropagation();
-                        }
-                      : undefined
-                  }
-                  style={{
-                    width: `${((size.width + FRAME_OUTSET) / (slot.maxWidthM + FRAME_OUTSET)) * 100}%`,
-                    height: `${((size.height + FRAME_OUTSET) / (slot.maxHeightM + FRAME_OUTSET)) * 100}%`,
-                    left: `${50 + ((displayed.placementOffsetX ?? 0) / (slot.maxWidthM + FRAME_OUTSET)) * 100}%`,
-                    top: `${50 - ((displayed.placementOffsetY ?? 0) / (slot.maxHeightM + FRAME_OUTSET)) * 100}%`,
-                  }}
-                >
-                  {displayed.thumbnail ? (
-                    <img src={displayed.thumbnail} alt="" draggable={false} />
-                  ) : (
-                    <span>Votre œuvre</span>
-                  )}
-                  {displayed.availability === "sold" && <b>VENDUE</b>}
-                </span>
-              ) : (
-                <span className="admin-slot-empty">+</span>
-              )}
-              {!other && (
-                <span className="admin-slot-label">
-                  {slot.label.replace(/.*· /, "")}
-                  {other
-                    ? " · occupé"
-                    : isSelected
-                      ? " · sélectionné"
-                      : " · libre"}
-                </span>
-              )}
-            </button>
-          );
-        })}
+        {shown.map((slot) => (
+          <MovementZone
+            key={slot.id}
+            slot={slot}
+            left={left}
+            extent={extent}
+            onClick={() => choose(slot)}
+          />
+        ))}
+        {shown.flatMap((slot) =>
+          [
+            ...peers.filter((a) => a.slotId === slot.id),
+            ...(selected?.id === slot.id ? [artwork] : []),
+          ].map((displayed) => {
+            const isSelected = displayed.id === artwork.id;
+            const other = isSelected ? undefined : displayed;
+            const size = displayed ? artworkSize(displayed, slot) : null;
+            return (
+              <button
+                key={displayed.id}
+                data-artwork-id={displayed.id}
+                type="button"
+                className={`admin-wall-slot${isSelected ? " selected" : ""}${other ? " occupied" : ""}`}
+                disabled={Boolean(other) || !allowedRoom(artwork.roomId)}
+                aria-pressed={isSelected}
+                title={other ? `${slot.label} · ${other.title}` : undefined}
+                aria-label={`${slotCode(slot)} · ${other ? `occupé par ${other.title}` : isSelected ? "votre tableau" : "emplacement libre"}`}
+                onClick={() => choose(slot)}
+                style={previewSlotStyle(slot, displayed, left, extent)}
+              >
+                {displayed && size ? (
+                  <span
+                    className={`admin-wall-artwork ${displayed.availability === "sold" ? "sold" : ""}${isSelected ? " is-draggable" : ""}`}
+                    data-dragging={isSelected && dragging ? "true" : undefined}
+                    title={
+                      isSelected
+                        ? "Glissez pour déplacer le tableau. Les champs en centimètres restent disponibles."
+                        : undefined
+                    }
+                    onPointerDown={
+                      isSelected ? (event) => beginDrag(event, slot) : undefined
+                    }
+                    onPointerMove={
+                      isSelected ? (event) => moveDrag(event, slot) : undefined
+                    }
+                    onPointerUp={isSelected ? endDrag : undefined}
+                    onPointerCancel={isSelected ? endDrag : undefined}
+                    onLostPointerCapture={isSelected ? endDrag : undefined}
+                    onClick={
+                      isSelected
+                        ? (event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                          }
+                        : undefined
+                    }
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      left: "50%",
+                      top: "50%",
+                    }}
+                  >
+                    {displayed.thumbnail ? (
+                      <img
+                        src={displayed.thumbnail}
+                        alt=""
+                        draggable={false}
+                        style={previewImageStyle(size)}
+                      />
+                    ) : (
+                      <span>Votre œuvre</span>
+                    )}
+                    {displayed.availability === "sold" && <b>VENDUE</b>}
+                  </span>
+                ) : (
+                  <span className="admin-slot-empty">+</span>
+                )}
+              </button>
+            );
+          }),
+        )}
+        {selected && wallKey(selected) === wall && (
+          <ResizeHandle
+            artwork={artwork}
+            slot={selected}
+            artworks={artworks}
+            left={left}
+            extent={extent}
+            onChange={(displayScale) => onChange({ ...artwork, displayScale })}
+          />
+        )}
       </div>
       <div className="admin-placement-legend">
-        <span>○ Zone libre</span>
-        <span>▣ Œuvre exposée</span>
-        <span>▣ Vert : sélection</span>
+        <span>Pointillés : zones d’accrochage</span>
+        <span>● Tableau exposé</span>
+        <span>● Bleu : votre tableau</span>
         {selected && (
           <span>Glissez le tableau sélectionné pour le déplacer.</span>
         )}
       </div>
+      <div
+        className="admin-wall-inventory"
+        aria-label={`Emplacements du mur ${viewedGuide.code}`}
+      >
+        {shown.map((slot) => {
+          const other = occupied(slot);
+          const isSelected = selected?.id === slot.id;
+          const displayed = isSelected ? artwork : other;
+          return (
+            <button
+              type="button"
+              key={slot.id}
+              className={isSelected ? "is-selected" : ""}
+              disabled={!allowedRoom(artwork.roomId)}
+              aria-pressed={isSelected}
+              onClick={() => choose(slot)}
+              aria-label={`${slotCode(slot)} · ${isSelected ? "Zone de ce tableau" : "Choisir cette zone"}`}
+            >
+              <b>{slotCode(slot)}</b>
+              {displayed?.thumbnail ? (
+                <img src={displayed.thumbnail} alt="" />
+              ) : (
+                <span className="admin-inventory-empty" aria-hidden="true">
+                  +
+                </span>
+              )}
+              <span>
+                <strong>
+                  {peers.filter((a) => a.slotId === slot.id).length +
+                    (isSelected ? 1 : 0)}{" "}
+                  tableau(x)
+                </strong>
+                <small>
+                  {isSelected ? "Zone du tableau" : "Ajouter dans cette zone"}
+                </small>
+              </span>
+            </button>
+          );
+        })}
+      </div>
       <button
         type="button"
         className="admin-text-button"
-        onClick={() =>
-          onChange({
+        onClick={() => {
+          setAutomaticError("");
+          const candidate = {
             ...artwork,
             slotId: "",
             placementOffsetX: 0,
             placementOffsetY: 0,
-          })
-        }
+          };
+          if (!artwork.image) {
+            onChange(candidate);
+            return;
+          }
+          try {
+            const placed = resolvePlacement(
+              {
+                ...candidate,
+                publication: "published",
+                alt: artwork.alt || "Aperçu du tableau",
+              },
+              artworks,
+              rooms,
+              collectionRooms,
+            );
+            onChange({
+              ...placed,
+              publication: artwork.publication,
+              alt: artwork.alt,
+            });
+          } catch (error) {
+            setAutomaticError(
+              error instanceof Error
+                ? error.message
+                : "Aucun emplacement adapté.",
+            );
+          }
+        }}
       >
         Choisir automatiquement un emplacement
       </button>
-      {selected && limits ? (
+      {automaticError && (
+        <p className="admin-placement-warning" role="alert">
+          {automaticError}
+        </p>
+      )}
+      {selected && limits && wallKey(selected) === wall ? (
         <fieldset className="admin-placement-adjust">
-          <legend>Régler « {selected.label} »</legend>
-          <label>
-            Taille d’accrochage ·{" "}
-            {Math.round((artwork.displayScale ?? 1) * 100)} %
-            <input
-              aria-label="Taille d’accrochage"
-              type="range"
-              min="35"
-              max="100"
-              step="1"
-              value={Math.round((artwork.displayScale ?? 1) * 100)}
-              onChange={(e) => rescale(Number(e.target.value) / 100)}
-            />
-          </label>
-          <p className="admin-help">
-            {artwork.widthCm || artwork.heightCm
-              ? "Les dimensions déclarées sont conservées. Ce réglage change seulement la taille présentée dans la salle."
-              : "Échelle indicative : les dimensions réelles ne sont pas encore renseignées."}{" "}
-            Présentation : {Math.round(limits.width * 100)} ×{" "}
-            {Math.round(limits.height * 100)} cm.
-          </p>
+          <legend>3. Ajuster le tableau · {slotCode(selected)}</legend>
+          <ShowroomSize
+            key={`${selected.id}:${resetVersion}`}
+            artwork={artwork}
+            slot={selected}
+            artworks={artworks}
+            onChange={(displayScale) => onChange({ ...artwork, displayScale })}
+          />
           <div className="admin-two">
             {(
               [
@@ -353,30 +432,42 @@ export default function PlacementEditor({
                   key: "placementOffsetX",
                   label: "Horizontal (cm)",
                   limit: limits.horizontal,
+                  min: limits.minX,
                 },
                 {
                   key: "placementOffsetY",
                   label: "Hauteur (cm)",
                   limit: limits.vertical,
+                  min: limits.minY,
                 },
               ] as const
             ).map((axis) => (
-              <label key={axis.key}>
-                {axis.label}
-                <input
-                  type="number"
-                  min={-Math.floor(axis.limit * 100)}
-                  max={Math.floor(axis.limit * 100)}
-                  step="1"
+              <div className="admin-offset-field" key={axis.key}>
+                <span>{axis.label}</span>
+                <OffsetInput
+                  key={`${selected.id}:${resetVersion}`}
+                  label={axis.label}
+                  limit={Math.floor(axis.limit * 100)}
+                  min={Math.ceil(axis.min * 100)}
                   value={Math.round((artwork[axis.key] ?? 0) * 100)}
-                  onChange={(e) =>
+                  decrease={
+                    axis.key === "placementOffsetX"
+                      ? "Déplacer de 1 cm vers la gauche"
+                      : "Descendre de 1 cm"
+                  }
+                  increase={
+                    axis.key === "placementOffsetX"
+                      ? "Déplacer de 1 cm vers la droite"
+                      : "Monter de 1 cm"
+                  }
+                  onChange={(value) =>
                     onChange({
                       ...artwork,
-                      [axis.key]: Number(e.target.value) / 100,
+                      [axis.key]: value / 100,
                     })
                   }
                 />
-              </label>
+              </div>
             ))}
           </div>
           <p className="admin-help">
@@ -387,14 +478,15 @@ export default function PlacementEditor({
           <button
             type="button"
             className="admin-text-button"
-            onClick={() =>
+            onClick={() => {
+              setResetVersion((value) => value + 1);
               onChange({
                 ...artwork,
                 placementOffsetX: 0,
                 placementOffsetY: 0,
                 displayScale: 1,
-              })
-            }
+              });
+            }}
           >
             Recentrer et rétablir la taille
           </button>
@@ -405,12 +497,108 @@ export default function PlacementEditor({
             {issue || "Le cadre tient dans sa zone, sans chevauchement."}
           </p>
         </fieldset>
-      ) : (
+      ) : !selected ? (
         <p className="admin-help">
           Emplacement automatique : la place sera attribuée à la publication.
           Cliquez sur une zone pour la choisir vous-même.
         </p>
-      )}
+      ) : null}
     </div>
+  );
+}
+
+/** Keep intermediate minus/empty keystrokes; never turn a negative move positive. */
+export function OffsetInput({
+  value,
+  limit,
+  min = -limit,
+  label,
+  decrease,
+  increase,
+  onChange,
+}: {
+  value: number;
+  limit: number;
+  min?: number;
+  label: string;
+  decrease: string;
+  increase: string;
+  onChange: (value: number) => void;
+}) {
+  const [text, setText] = useState(String(value));
+  const emitted = useRef(value);
+  const input = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (value !== emitted.current) {
+      emitted.current = value;
+      setText(String(value));
+    }
+  }, [value]);
+  const valid =
+    /^-?\d+$/.test(text) && Number(text) >= min && Number(text) <= limit;
+  useEffect(() => {
+    input.current?.setCustomValidity(
+      valid ? "" : `Saisissez un nombre entier entre ${min} et ${limit} cm.`,
+    );
+  }, [valid, limit, min]);
+  function step(delta: number) {
+    const next = Math.max(min, Math.min(limit, value + delta));
+    emitted.current = next;
+    setText(String(next));
+    onChange(next);
+  }
+  return (
+    <span className="admin-offset-control">
+      <button
+        type="button"
+        aria-label={decrease}
+        disabled={value <= min}
+        onClick={() => step(-1)}
+      >
+        −
+      </button>
+      <input
+        ref={input}
+        aria-label={label}
+        type="text"
+        inputMode="decimal"
+        required
+        maxLength={7}
+        value={text}
+        aria-invalid={!valid || undefined}
+        onChange={(event) => {
+          const next = event.target.value;
+          setText(next);
+          if (
+            /^-?\d+$/.test(next) &&
+            Number(next) >= min &&
+            Number(next) <= limit
+          ) {
+            emitted.current = Number(next);
+            onChange(Number(next));
+          }
+        }}
+        onBlur={() => {
+          if (valid) setText(String(Number(text)));
+        }}
+        onKeyDown={(event) => {
+          if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+            event.preventDefault();
+            step(event.key === "ArrowUp" ? 1 : -1);
+          }
+        }}
+      />
+      <button
+        type="button"
+        aria-label={increase}
+        disabled={value >= limit}
+        onClick={() => step(1)}
+      >
+        +
+      </button>
+      <small>
+        De {min < 0 ? `−${Math.abs(min)}` : min} à +{limit} cm
+      </small>
+    </span>
   );
 }

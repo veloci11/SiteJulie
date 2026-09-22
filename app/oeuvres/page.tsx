@@ -9,6 +9,13 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Les œuvres" };
 export default async function Catalogue() {
   const data = await getPublicData();
+  const collections = groupCollections(data.artworks, data.rooms);
+  const priorityIds = new Set(
+    collections
+      .flatMap((group) => group.artworks)
+      .slice(0, 3)
+      .map((a) => a.id),
+  );
   return (
     <>
       <a className="skip-link" href="#catalogue">
@@ -29,59 +36,59 @@ export default async function Catalogue() {
             <br />À votre rythme, en toute simplicité.
           </p>
         </div>
-        {groupCollections(data.artworks, data.rooms).map(
-          ({ name, artworks }) => {
-            if (!artworks.length) return null;
-            return (
-              <section
-                className="catalogue-collection"
-                key={name}
-                aria-label={name}
-              >
-                <div className="catalogue-collection-heading">
-                  <h2>{name}</h2>
-                  <span>{artworks.length} œuvres</span>
-                </div>
-                {data.settings.collectionDescriptions?.[name] && (
-                  <p className="collection-copy">
-                    {data.settings.collectionDescriptions[name]}
-                  </p>
-                )}
-                <div className="catalogue-grid">
-                  {artworks.map((a, i) => (
-                    <Link
-                      key={a.id}
-                      href={`/oeuvres/${a.slug}`}
-                      className="catalogue-card"
-                      data-availability={a.availability}
-                    >
-                      <div className="catalogue-image">
-                        <img
-                          src={a.image}
-                          alt={a.alt}
-                          width={a.imageWidth}
-                          height={a.imageHeight}
-                          loading={i < 3 ? "eager" : "lazy"}
-                        />
-                        <span className="catalogue-index">
-                          {String(i + 1).padStart(2, "0")}
-                        </span>
-                        <span className="card-arrow">
-                          <ArrowUpRight size={23} />
-                        </span>
-                      </div>
-                      <div className="catalogue-caption">
-                        <h2>{a.title}</h2>
-                        <p>{priceLabel(a)}</p>
-                      </div>
-                      <small>{availabilityLabel(a)}</small>
-                    </Link>
-                  ))}
-                </div>
-              </section>
-            );
-          },
-        )}
+        {collections.map(({ name, artworks }) => {
+          if (!artworks.length) return null;
+          return (
+            <section
+              className="catalogue-collection"
+              key={name}
+              aria-label={name}
+            >
+              <div className="catalogue-collection-heading">
+                <h2>{name}</h2>
+                <span>{artworks.length} œuvres</span>
+              </div>
+              {data.settings.collectionDescriptions?.[name] && (
+                <p className="collection-copy">
+                  {data.settings.collectionDescriptions[name]}
+                </p>
+              )}
+              <div className="catalogue-grid">
+                {artworks.map((a, i) => (
+                  <Link
+                    key={a.id}
+                    href={`/oeuvres/${a.slug}`}
+                    className="catalogue-card"
+                    data-availability={a.availability}
+                  >
+                    <div className="catalogue-image">
+                      <img
+                        src={a.image}
+                        alt={a.alt}
+                        width={a.imageWidth}
+                        height={a.imageHeight}
+                        crossOrigin="anonymous"
+                        decoding="async"
+                        loading={priorityIds.has(a.id) ? "eager" : "lazy"}
+                      />
+                      <span className="catalogue-index">
+                        {String(i + 1).padStart(2, "0")}
+                      </span>
+                      <span className="card-arrow">
+                        <ArrowUpRight size={23} />
+                      </span>
+                    </div>
+                    <div className="catalogue-caption">
+                      <h2>{a.title}</h2>
+                      <p>{priceLabel(a)}</p>
+                    </div>
+                    <small>{availabilityLabel(a)}</small>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          );
+        })}
       </main>
       <PublicFooter demo={data.mode === "demo"} />
     </>

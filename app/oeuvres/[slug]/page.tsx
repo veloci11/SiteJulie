@@ -43,6 +43,8 @@ export default async function ArtworkPage({
           <div className="artwork-original">
             <img
               src={a.detailImage}
+              crossOrigin="anonymous"
+              decoding="async"
               alt={a.alt}
               width={a.imageWidth}
               height={a.imageHeight}
