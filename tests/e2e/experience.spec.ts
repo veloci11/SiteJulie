@@ -1,12 +1,18 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 import { openArtworkDrawer } from "./navigation-helpers";
 import type { PublicData } from "../../lib/data/types";
 
+async function showInformation(page: Page) {
+  const button = page.locator(".visit-info-toggle");
+  await expect(button).toBeVisible({ timeout: 60000 });
+  if ((await button.getAttribute("aria-expanded")) === "false")
+    await button.click();
+}
+
 for (const viewport of [
   { width: 1440, height: 900 },
-  { width: 390, height: 844 },
-  { width: 320, height: 568 },
-  { width: 667, height: 375 },
+  { width: 1920, height: 1080 },
+  { width: 978, height: 878 },
 ]) {
   test(`visitor controls and artwork selection at ${viewport.width}px`, async ({
     page,
@@ -57,6 +63,7 @@ for (const viewport of [
       await openArtworkDrawer(page);
       await page.locator(".visit-art-card").first().click();
     }
+    await showInformation(page);
     await expect(page.locator(".visit-details")).toBeVisible();
     await expect(page.locator(".visit-filmstrip")).toBeVisible();
     const selected = data.artworks.find(
@@ -80,15 +87,19 @@ for (const viewport of [
     await expect(page).toHaveURL(
       new RegExp(`slug=${encodeURIComponent(final.slug)}`),
     );
+    await showInformation(page);
     await expect(page.locator(".visit-details h2")).toHaveText(final.title);
     await page
       .getByRole("button", { name: "Œuvre précédente", exact: true })
       .click();
     const previous = collection[(start + 2) % collection.length];
+    await showInformation(page);
     await expect(page.locator(".visit-details h2")).toHaveText(previous.title);
     await page.goBack();
+    await showInformation(page);
     await expect(page.locator(".visit-details h2")).toHaveText(final.title);
     await page.reload();
+    await showInformation(page);
     await expect(page.locator(".visit-details h2")).toHaveText(final.title);
     const bounds = await page.locator(".visit-dock").boundingBox();
     expect(bounds!.x).toBeGreaterThanOrEqual(0);
@@ -161,26 +172,11 @@ test("automatic promenade, interruptions and cross-room selection stay controlla
   await expect
     .poll(() => canvas.getAttribute("data-camera-position"))
     .not.toBe(pose);
-  const preview = page.locator(".visit-auto-preview");
-  await expect(preview).toBeVisible();
-  const shownId = await preview.getAttribute("data-artwork-id");
-  expect(shownId).toBe(await canvas.getAttribute("data-tour-artwork"));
-  const bounds = await preview.boundingBox();
-  const dock = await page.locator(".visit-dock").boundingBox();
-  expect(bounds!.y + bounds!.height).toBeLessThan(dock!.y);
-  await preview.hover();
-  await page.waitForTimeout(350);
-  expect(await preview.getAttribute("data-artwork-id")).toBe(shownId);
-  await page.screenshot({
-    path: "artifacts/experience-qa/automatic-artwork-preview.png",
+  await expect(page.locator(".visit-auto-preview")).toBeVisible({
+    timeout: 60000,
   });
-  await preview.click();
-  await expect(page).toHaveURL(
-    new RegExp(
-      `slug=${encodeURIComponent(data.artworks.find((a) => a.id === shownId)!.slug)}`,
-    ),
-  );
-  await expect(preview).toBeHidden();
+  await expect(page.locator(".visit-filmstrip")).toBeVisible();
+  await page.locator(".visit-film-card").first().click();
   await expect(page.locator(".visit-travel")).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "Arriver directement" }),
@@ -189,6 +185,7 @@ test("automatic promenade, interruptions and cross-room selection stay controlla
     .getByRole("button", { name: "Œuvre suivante", exact: true })
     .click();
   const expectedSlug = new URL(page.url()).searchParams.get("slug");
+  await showInformation(page);
   await expect(page.locator(".visit-details h2")).toHaveText(
     data.artworks.find((a) => a.slug === expectedSlug)!.title,
   );
@@ -202,6 +199,7 @@ test("automatic promenade, interruptions and cross-room selection stay controlla
   await page.screenshot({
     path: "artifacts/experience-qa/transit-desktop.png",
   });
+  await showInformation(page);
   await expect(page.locator(".visit-details h2")).toHaveText(other.title, {
     timeout: 45000,
   });
@@ -209,7 +207,7 @@ test("automatic promenade, interruptions and cross-room selection stay controlla
     path: "artifacts/experience-qa/landscape-work-desktop.png",
   });
   await page
-    .getByRole("button", { name: "Revenir à la salle", exact: true })
+    .getByRole("button", { name: "Reprendre la visite", exact: true })
     .click();
   await expect(canvas).toHaveAttribute("data-tour-state", "walking");
   expect(

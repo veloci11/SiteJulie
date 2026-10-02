@@ -501,7 +501,7 @@ for (const viewport of [
   { width: 1440, height: 900 },
   { width: 390, height: 844 },
 ]) {
-  test(`editorial dialogs ${viewport.width}px keep the promenade continuous after every close`, async ({
+  test(`editorial windows ${viewport.width}px keep the promenade continuous after every close`, async ({
     page,
   }) => {
     test.setTimeout(180000);
@@ -517,6 +517,13 @@ for (const viewport of [
     await expect(canvas).toHaveAttribute("data-tour-state", "walking", {
       timeout: 15000,
     });
+    // The room poster first turns toward the path before walking accelerates.
+    // Exercise editorial continuity after translation has actually started.
+    await expect
+      .poll(async () => Number(await canvas.getAttribute("data-tour-speed")), {
+        timeout: 15000,
+      })
+      .toBeGreaterThan(0.08);
     const original = await canvas.elementHandle();
     for (const [label, name, url] of [
       ["À propos", "À propos de l’artiste", /vue=apropos/],
@@ -528,7 +535,7 @@ for (const viewport of [
       await expect(modal).toBeVisible();
       expect(
         await modal.evaluate(
-          (node) => (node as HTMLDialogElement).open && node.matches(":modal"),
+          (node) => (node as HTMLDialogElement).open && !node.matches(":modal"),
         ),
       ).toBe(true);
       await expect(page).toHaveURL(url);
@@ -542,9 +549,8 @@ for (const viewport of [
       expect(
         Math.abs(bounds!.x + bounds!.width / 2 - viewport.width / 2),
       ).toBeLessThan(8);
-      expect(
-        Math.abs(bounds!.y + bounds!.height / 2 - viewport.height / 2),
-      ).toBeLessThan(8);
+      const header = (await page.locator(".visit-header").boundingBox())!;
+      expect(bounds!.y).toBeGreaterThan(header.y + header.height);
       expect(bounds!.x).toBeGreaterThanOrEqual(0);
       expect(bounds!.y).toBeGreaterThanOrEqual(0);
       expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(viewport.width + 1);

@@ -127,6 +127,11 @@ export interface MuseumProps {
   selectedArtworkId: string | null;
   onPointerMissed: () => void;
   onTourArtwork?: (artworkId: string | null) => void;
+  onLookResume?: (roomId: string) => void;
+  allowManualLook?: boolean;
+  onLookStateChange?: (
+    state: "dragging" | "resuming" | "blocked" | "idle",
+  ) => void;
   onPixelRatio?: (ratio: number) => void;
   /** Poster captures must include the rooms visible through the doorways. */
   captureAllRooms?: boolean;

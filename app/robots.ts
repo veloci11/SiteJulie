@@ -1,16 +1,15 @@
 import type { MetadataRoute } from "next";
+import { publicIndexingEnabled, siteOrigin } from "@/lib/seo";
 export default function robots(): MetadataRoute.Robots {
-  const enabled =
-    process.env.MUSEUM_PUBLIC_INDEXING === "1" &&
-    ["supabase", "blob"].includes(process.env.MUSEUM_DATA_MODE || "");
+  const enabled = publicIndexingEnabled();
   return {
     rules: {
       userAgent: "*",
-      allow: enabled ? "/" : undefined,
-      disallow: enabled ? ["/admin", "/api/"] : "/",
+      allow: enabled ? ["/", "/api/media/"] : undefined,
+      disallow: enabled ? ["/admin", "/api/", "/visite/apercu"] : "/",
     },
-    ...(enabled && process.env.NEXT_PUBLIC_SITE_URL
-      ? { sitemap: `${process.env.NEXT_PUBLIC_SITE_URL}/sitemap.xml` }
+    ...(enabled && siteOrigin()
+      ? { sitemap: `${siteOrigin()}/sitemap.xml` }
       : {}),
   };
 }

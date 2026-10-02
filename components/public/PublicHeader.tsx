@@ -40,7 +40,7 @@ export default function PublicHeader({
       </nav>
       <Link
         href={immersive}
-        className="view-switch gallery-view-switch"
+        className="view-switch gallery-view-switch desktop-visit-link"
         aria-label="Entrer dans la visite 3D"
       >
         <Landmark size={17} strokeWidth={1.5} />

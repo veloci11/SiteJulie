@@ -76,7 +76,7 @@ describe("reviewed Julie portfolio", () => {
   });
   it("keeps verified contact details, courses and collection descriptions editable", () => {
     const settings = settingsSchema.parse(source.settings);
-    expect(settings.email).toBe("thiam.julie@proton.me");
+    expect(settings.email).toBe("contact@juliethiam.art");
     expect(settings.instagramUrl).toBe(
       "https://www.instagram.com/julie_thiam/",
     );

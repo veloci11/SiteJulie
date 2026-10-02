@@ -3,8 +3,17 @@ import { getPublicData } from "@/lib/data/repository";
 import PublicHeader from "@/components/public/PublicHeader";
 import PublicFooter from "@/components/public/PublicFooter";
 import ContactActions from "@/components/public/ContactActions";
+import { pageMetadata } from "@/lib/seo";
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Contact" };
+export async function generateMetadata() {
+  const data = await getPublicData();
+  return pageMetadata(
+    data.settings,
+    "Contact",
+    data.settings.contactText,
+    "/contact",
+  );
+}
 export default async function Contact({
   searchParams,
 }: {
@@ -24,14 +33,18 @@ export default async function Contact({
         <h1>{data.settings.contactTitle}</h1>
         <p className="long-copy">{data.settings.contactText}</p>
         <div className="gold-rule" />
-        <ContactActions settings={data.settings} artwork={a} />
+        <ContactActions
+          settings={data.settings}
+          artwork={a}
+          canSend={data.contactEnabled}
+        />
         {a && (
           <Link href="/contact" className="text-link">
             Faire une demande générale
           </Link>
         )}
       </main>
-      <PublicFooter demo={data.mode === "demo"} />
+      <PublicFooter />
     </>
   );
 }

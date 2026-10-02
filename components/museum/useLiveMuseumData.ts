@@ -3,7 +3,10 @@ import { useEffect, useRef, useState } from "react";
 import type { PublicData } from "@/lib/data/types";
 import { CATALOGUE_CHANGED } from "@/lib/museum/catalogueEvents";
 
-export function useLiveMuseumData(initialData: PublicData) {
+export function useLiveMuseumData(
+  initialData: PublicData,
+  refreshOnOpen = false,
+) {
   const [snapshot, setSnapshot] = useState({ data: initialData, version: 0 });
   const current = useRef(initialData);
   useEffect(() => {
@@ -60,6 +63,7 @@ export function useLiveMuseumData(initialData: PublicData) {
       /* Focus and storage events work without BroadcastChannel. */
     }
     window.addEventListener("focus", onRefresh);
+    if (refreshOnOpen) void refresh();
     document.addEventListener("visibilitychange", onRefresh);
     window.addEventListener("storage", onStorage);
     return () => {
@@ -70,7 +74,7 @@ export function useLiveMuseumData(initialData: PublicData) {
       document.removeEventListener("visibilitychange", onRefresh);
       window.removeEventListener("storage", onStorage);
     };
-  }, []);
+  }, [refreshOnOpen]);
   return snapshot;
 }
 
@@ -79,6 +83,9 @@ export function useRoomPreviewVersion(
   enabled: boolean,
 ) {
   const [capture, setCapture] = useState("");
+  const [ready, setReady] = useState(false);
+  const [fingerprint, setFingerprint] = useState("");
+  const [checkedVersion, setCheckedVersion] = useState(-1);
   useEffect(() => {
     if (!enabled) return;
     let active = true;
@@ -95,14 +102,23 @@ export function useRoomPreviewVersion(
           fingerprint: string;
           ready: boolean;
           supported: boolean;
+          captureMethod?: "browser" | "server" | null;
           error?: string;
           retryAfterMs?: number;
         } = await response.json();
         if (!active) return;
+        setReady(status.ready);
+        setFingerprint(status.fingerprint);
+        setCheckedVersion(catalogueVersion);
         setCapture(
           `${status.fingerprint}-${status.ready ? "ready" : "pending"}`,
         );
-        if (status.ready || !status.supported) return;
+        if (
+          status.ready ||
+          !status.supported ||
+          status.captureMethod !== "server"
+        )
+          return;
         timer = setTimeout(
           check,
           status.error ? Math.max(10000, status.retryAfterMs || 0) : 1500,
@@ -118,5 +134,9 @@ export function useRoomPreviewVersion(
       clearTimeout(timer);
     };
   }, [catalogueVersion, enabled]);
-  return `${catalogueVersion}-${capture}`;
+  return {
+    version: `${catalogueVersion}-${capture}`,
+    ready: checkedVersion === catalogueVersion && ready,
+    fingerprint: checkedVersion === catalogueVersion ? fingerprint : "",
+  };
 }

@@ -1,7 +1,10 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { PerspectiveCamera, Vector3 } from "three";
 import type { Artwork } from "../lib/data/types";
-import { automaticLens } from "../lib/museum/automaticFraming";
+import {
+  automaticLens,
+  automaticTourInsets,
+} from "../lib/museum/automaticFraming";
 import {
   getSlots,
   artworkSize,
@@ -11,6 +14,134 @@ import {
 import { motionFromPose, motionLookTarget } from "../lib/museum/navigation";
 
 describe("Automatic visit framing", () => {
+  it("keeps the lens and actual painting projection stable while its preview mounts, hides and changes", () => {
+    const slot = getSlots()[0];
+    const artwork = {
+      id: "preview-work",
+      roomId: "room-1",
+      slotId: slot.id,
+      imageWidth: 1000,
+      imageHeight: 1000,
+      widthCm: null,
+      heightCm: null,
+      displayScale: 0.5,
+    } as Artwork;
+    const sample = motionFromPose({
+      position: slot.position.map((n, i) => n + slot.wallNormal[i] * 3) as [
+        number,
+        number,
+        number,
+      ],
+      target: slot.position,
+      roomId: "room-1",
+      offsetPx: 0,
+      offsetYPx: 0,
+    });
+    let preview: { getBoundingClientRect: () => object } | null = null;
+    const shell = {
+      querySelector: (selector: string) =>
+        selector === ".visit-dock"
+          ? { getBoundingClientRect: () => ({ top: 700 }) }
+          : selector === ".visit-auto-preview"
+            ? preview
+            : null,
+    } as unknown as HTMLElement;
+    vi.stubGlobal("getComputedStyle", () => ({
+      getPropertyValue: (name: string) =>
+        name === "--tour-preview-width"
+          ? "280px"
+          : name === "--tour-preview-edge"
+            ? "24px"
+            : "",
+    }));
+    try {
+      let baseline:
+        | { lens: ReturnType<typeof automaticLens>; projection: number[] }
+        | undefined;
+      for (const rectangle of [
+        null,
+        { left: 1136, top: 190, width: 280, height: 350 },
+        { left: 0, top: 0, width: 0, height: 0 },
+        { left: 1136, top: 150, width: 280, height: 440 },
+        null,
+      ]) {
+        preview = rectangle ? { getBoundingClientRect: () => rectangle } : null;
+        const inset = automaticTourInsets(shell, 1440, 900, 900);
+        expect(inset.right).toBe(320); // 280px card + 24px edge + 16px margin.
+        const lens = automaticLens(sample, [artwork], 1440, 900, inset, 78);
+        expect(lens.offsetX).toBe(152);
+        const camera = new PerspectiveCamera(lens.fov, 1440 / 900, 0.1, 120);
+        camera.position.fromArray(sample.position);
+        camera.lookAt(new Vector3(...motionLookTarget(sample)));
+        camera.setViewOffset(1440, 900, lens.offsetX, lens.offsetY, 1440, 900);
+        camera.updateMatrixWorld();
+        const projection = new Vector3(...slot.position)
+          .project(camera)
+          .toArray();
+        baseline ??= { lens, projection };
+        expect({ lens, projection }).toEqual(baseline);
+      }
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+  it("uses constant pixel reservations including zero for CSS-hidden compact cards", () => {
+    vi.stubGlobal("getComputedStyle", () => ({ getPropertyValue: () => "" }));
+    const shell = { querySelector: () => null } as unknown as HTMLElement;
+    try {
+      for (const [width, height, right] of [
+        [1440, 900, 320],
+        [978, 878, 320],
+        [1440, 480, 330],
+        [978, 480, 16],
+        [390, 844, 16],
+        [667, 375, 16],
+      ])
+        expect(automaticTourInsets(shell, width, height, height).right).toBe(
+          right,
+        );
+      vi.stubGlobal("getComputedStyle", () => ({
+        getPropertyValue: () => "0px",
+      }));
+      expect(automaticTourInsets(shell, 1440, 900, 900).right).toBe(16);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+  it("bounds the walking lens even when a large painting is very close", () => {
+    const slot = getSlots()[0];
+    const artwork = {
+      id: "near-work",
+      roomId: "room-1",
+      slotId: slot.id,
+      imageWidth: 2000,
+      imageHeight: 1000,
+      widthCm: null,
+      heightCm: null,
+      displayScale: 1,
+    } as Artwork;
+    const sample = motionFromPose({
+      position: slot.position.map((n, i) => n + slot.wallNormal[i] * 0.5) as [
+        number,
+        number,
+        number,
+      ],
+      target: slot.position,
+      roomId: "room-1",
+      offsetPx: 0,
+      offsetYPx: 0,
+    });
+    expect(
+      automaticLens(
+        sample,
+        [artwork],
+        1440,
+        900,
+        { top: 100, bottom: 90, left: 16, right: 16 },
+        78,
+      ).fov,
+    ).toBeLessThanOrEqual(78);
+  });
   it("fits actual frame corners for changed ratios, scales and walls", () => {
     let widerAfterResize = 0;
     for (const [width, height] of [

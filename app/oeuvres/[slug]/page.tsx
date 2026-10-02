@@ -5,6 +5,7 @@ import { getPublicData } from "@/lib/data/repository";
 import { priceLabel, availabilityLabel } from "@/lib/public";
 import PublicHeader from "@/components/public/PublicHeader";
 import PublicFooter from "@/components/public/PublicFooter";
+import { pageMetadata, siteOrigin, jsonLd } from "@/lib/seo";
 export const dynamic = "force-dynamic";
 export async function generateMetadata({
   params,
@@ -14,10 +15,15 @@ export async function generateMetadata({
   const { slug } = await params;
   const data = await getPublicData();
   const a = data.artworks.find((a) => a.slug === slug);
-  return {
-    title: a?.title || "Œuvre introuvable",
-    description: a?.description || "Découvrez cette œuvre dans la galerie.",
-  };
+  if (!a) notFound();
+  return pageMetadata(
+    data.settings,
+    a.title,
+    a.description ||
+      `${a.title}, une peinture de ${data.settings.artistName}${a.collection ? ` dans la collection ${a.collection}` : ""}. ${priceLabel(a)}.`,
+    `/oeuvres/${encodeURIComponent(a.slug)}`,
+    a,
+  );
 }
 export default async function ArtworkPage({
   params,
@@ -28,6 +34,7 @@ export default async function ArtworkPage({
   const data = await getPublicData();
   const a = data.artworks.find((a) => a.slug === slug);
   if (!a) notFound();
+  const origin = siteOrigin();
   return (
     <>
       <PublicHeader
@@ -36,6 +43,23 @@ export default async function ArtworkPage({
         immersive={`/?vue=oeuvre&slug=${a.slug}`}
       />
       <main className="artwork-page">
+        {origin && (
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{
+              __html: jsonLd({
+                "@context": "https://schema.org",
+                "@type": "VisualArtwork",
+                name: a.title,
+                creator: { "@type": "Person", name: data.settings.artistName },
+                url: `${origin}/oeuvres/${encodeURIComponent(a.slug)}`,
+                image: new URL(a.detailImage, origin).href,
+                ...(a.description ? { description: a.description } : {}),
+                ...(a.technique ? { artMedium: a.technique } : {}),
+              }),
+            }}
+          />
+        )}
         <Link href="/oeuvres" className="text-link back-link">
           <ArrowLeft size={16} /> Toutes les œuvres
         </Link>
@@ -88,13 +112,16 @@ export default async function ArtworkPage({
             >
               S’informer sur cette œuvre <ArrowUpRight size={17} />
             </Link>
-            <Link className="text-link" href={`/?vue=oeuvre&slug=${a.slug}`}>
+            <Link
+              className="text-link desktop-visit-link"
+              href={`/?vue=oeuvre&slug=${a.slug}`}
+            >
               <Box size={17} /> Voir dans la galerie 3D
             </Link>
           </article>
         </div>
       </main>
-      <PublicFooter demo={data.mode === "demo"} />
+      <PublicFooter />
     </>
   );
 }

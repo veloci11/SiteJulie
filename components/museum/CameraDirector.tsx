@@ -34,8 +34,17 @@ import {
   TourTimeline,
   TOUR_INITIAL_DELAY,
 } from "@/lib/museum/tour";
-import { automaticLens } from "@/lib/museum/automaticFraming";
-import { ContinuousPromenade, continuationRoom } from "@/lib/museum/promenade";
+import {
+  automaticLens,
+  automaticTourInsets,
+} from "@/lib/museum/automaticFraming";
+import {
+  ContinuousPromenade,
+  continuationRoom,
+  manualContinuationRoom,
+} from "@/lib/museum/promenade";
+import { manualLookSample } from "@/lib/museum/manualLook";
+export type LookState = "dragging" | "resuming" | "blocked" | "idle";
 interface Props {
   data: PublicData;
   destination: Destination;
@@ -48,6 +57,9 @@ interface Props {
   roomAutoplay?: boolean;
   resumeFromCurrent?: boolean;
   onTourArtwork?: (artworkId: string | null) => void;
+  onLookResume?: (roomId: string) => void;
+  onLookStateChange?: (state: LookState) => void;
+  allowManualLook?: boolean;
 }
 interface Journey {
   id: number;
@@ -69,6 +81,9 @@ export function CameraDirector({
   roomAutoplay = false,
   resumeFromCurrent = false,
   onTourArtwork,
+  onLookResume,
+  onLookStateChange,
+  allowManualLook = true,
 }: Props) {
   const controls = useRef<CameraControlsImpl>(null);
   const journey = useRef<Journey | null>(null);
@@ -89,8 +104,32 @@ export function CameraDirector({
     onArrive,
     onError,
     onTourArtwork,
+    onLookResume,
+    onLookStateChange,
   });
-  callbacks.current = { onArrive, onError, onTourArtwork };
+  callbacks.current = {
+    onArrive,
+    onError,
+    onTourArtwork,
+    onLookResume,
+    onLookStateChange,
+  };
+  const currentRooms = useRef(data.rooms);
+  currentRooms.current = data.rooms;
+  const manualResume = useRef(false);
+  const cancelledDragPointer = useRef<number | null>(null);
+  const manualLookAllowed = useRef(allowManualLook);
+  manualLookAllowed.current = allowManualLook;
+  const lastManualMetadataTime = useRef(-Infinity);
+  const mouseLook = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    lastX: number;
+    lastY: number;
+    active: boolean;
+    sample: CameraMotionSample;
+  } | null>(null);
   const [visible, setVisible] = useState(true);
   const promenade = useRef<ContinuousPromenade | null>(null);
   const previousActiveTime = useRef(0);
@@ -130,6 +169,8 @@ export function CameraDirector({
       ),
     [data],
   );
+  const currentWalks = useRef(roomWalks);
+  currentWalks.current = roomWalks;
   const appliedSize = useRef({ width: 0, height: 0 });
   const latestId = useRef(navigationId);
   latestId.current = navigationId;
@@ -168,17 +209,12 @@ export function CameraDirector({
       const next = {
         top: portrait ? Math.max(top, 128) : top,
         bottom: portrait
-          ? Math.max(
-              dockBottom + 146,
-              details ? bounds.bottom - details.top + 12 : 0,
-            )
-          : dockBottom,
+          ? details
+            ? bounds.bottom - details.top + 12
+            : dockBottom + 40
+          : dockBottom + (details ? 0 : 40),
         left: 16,
-        right: portrait
-          ? 16
-          : details
-            ? bounds.right - details.left + 16
-            : Math.min(330, bounds.width * 0.42),
+        right: portrait ? 16 : details ? bounds.right - details.left + 16 : 16,
       };
       setFocusInsets((previous) =>
         previous &&
@@ -218,6 +254,64 @@ export function CameraDirector({
     if (wake.current !== null) clearTimeout(wake.current);
     wake.current = null;
   }
+  function setLookState(state: LookState) {
+    if (gl.domElement.dataset.lookState === state) return;
+    gl.domElement.dataset.lookState = state;
+    callbacks.current.onLookStateChange?.(state);
+  }
+  function updateVisibleArtwork(sample: CameraMotionSample, roomId: string) {
+    const shell = gl.domElement.closest<HTMLElement>(".visit-shell");
+    const bounds = gl.domElement.getBoundingClientRect();
+    const artworkId = visibleWalkArtwork(
+      sample,
+      tourArtworks(data, roomId),
+      size.width,
+      size.height,
+      tour.current.artworkId,
+      automaticTourInsets(shell, size.width, size.height, bounds.bottom),
+    );
+    if (artworkId !== tour.current.artworkId) {
+      tour.current.artworkId = artworkId;
+      gl.domElement.dataset.tourArtwork = artworkId ?? "";
+      callbacks.current.onTourArtwork?.(artworkId);
+    }
+  }
+  function cancelMouseLook(continueWalking: boolean) {
+    const look = mouseLook.current;
+    if (!look) return;
+    mouseLook.current = null;
+    manualResume.current = false;
+    if (look.active) cancelledDragPointer.current = look.pointerId;
+    if (gl.domElement.hasPointerCapture(look.pointerId))
+      gl.domElement.releasePointerCapture(look.pointerId);
+    gl.domElement.dataset.lookSuppressUntil = String(Date.now() + 350);
+    if (look.active) {
+      const stopped = pausedWalkSample(look.sample);
+      applySample(stopped, 0);
+      if (continueWalking && tour.current.walk) {
+        // Opening an overlay does not navigate away from it on pointer release.
+        // The background visit rejoins safely from the actual stopped pose,
+        // rather than restarting at a stored loop position after the drag.
+        const walk =
+          currentWalks.current.get(tour.current.walk.roomId) ??
+          tour.current.walk;
+        promenade.current = new ContinuousPromenade(
+          walk,
+          stopped,
+          currentRooms.current,
+          undefined,
+          { manualLook: true },
+        );
+      }
+    }
+    setLookState("idle");
+    invalidate();
+  }
+  useLayoutEffect(() => {
+    if (!allowManualLook) cancelMouseLook(true);
+    // Input refs and the current room loops always contain the latest request.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allowManualLook]);
   function wakeAfter(seconds: number) {
     clearWake();
     wake.current = setTimeout(() => invalidate(), Math.max(0, seconds) * 1000);
@@ -240,7 +334,10 @@ export function CameraDirector({
       appliedId.current === navigationId &&
       rendered.current
     ) {
-      rendered.current = pausedWalkSample(rendered.current);
+      if (promenade.current)
+        promenade.current = promenade.current.pause(currentRooms.current);
+      rendered.current =
+        promenade.current?.sample ?? pausedWalkSample(rendered.current);
       gl.domElement.dataset.tourSpeed = "0";
       gl.domElement.dataset.tourYawSpeed = "0";
     }
@@ -298,8 +395,139 @@ export function CameraDirector({
     }
   }
   useEffect(() => {
+    const canvas = gl.domElement;
+    const down = (event: PointerEvent) => {
+      if (
+        event.pointerType !== "mouse" ||
+        !manualLookAllowed.current ||
+        event.button !== 0 ||
+        !event.isPrimary ||
+        !rendered.current ||
+        !callbacks.current.onLookResume
+      )
+        return;
+      // A fresh press is a new visitor intent. Only the release of the old
+      // cancelled press must be swallowed; keyboard and dock clicks are native.
+      cancelledDragPointer.current = null;
+      canvas.dataset.lookSuppressUntil = "0";
+      mouseLook.current = {
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        lastX: event.clientX,
+        lastY: event.clientY,
+        active: false,
+        sample: rendered.current,
+      };
+    };
+    const move = (event: PointerEvent) => {
+      const look = mouseLook.current;
+      if (!look || look.pointerId !== event.pointerId) return;
+      if (!manualLookAllowed.current) {
+        cancelMouseLook(true);
+        return;
+      }
+      if (!look.active) {
+        if (
+          Math.hypot(event.clientX - look.startX, event.clientY - look.startY) <
+          6
+        )
+          return;
+        look.active = true;
+        lastManualMetadataTime.current = -Infinity;
+        look.sample = pausedWalkSample(rendered.current!);
+        journey.current = null;
+        promenade.current = null;
+        clearWake();
+        canvas.setPointerCapture(event.pointerId);
+        setLookState("dragging");
+        canvas.dataset.navigationState = "looking";
+        canvas.dataset.tourState = "looking";
+      }
+      look.sample = manualLookSample(
+        look.sample,
+        event.clientX - look.lastX,
+        event.clientY - look.lastY,
+        canvas.clientWidth,
+      );
+      look.lastX = event.clientX;
+      look.lastY = event.clientY;
+      canvas.dataset.lookSuppressUntil = String(Date.now() + 500);
+      event.preventDefault();
+      invalidate();
+    };
+    const finish = (event?: PointerEvent) => {
+      if (
+        cancelledDragPointer.current !== null &&
+        event?.pointerId === cancelledDragPointer.current
+      ) {
+        cancelledDragPointer.current = null;
+        canvas.dataset.lookSuppressUntil = String(Date.now() + 350);
+      }
+      const look = mouseLook.current;
+      if (!look || (event && event.pointerId !== look.pointerId)) return;
+      if (!manualLookAllowed.current) {
+        cancelMouseLook(true);
+        return;
+      }
+      mouseLook.current = null;
+      if (canvas.hasPointerCapture(look.pointerId))
+        canvas.releasePointerCapture(look.pointerId);
+      if (!look.active) return;
+      // The release keeps the last gaze exactly; the existing collision-checked
+      // promenade chooses a forward merge and circulation from that new heading.
+      applySample(look.sample, 0);
+      setLookState("resuming");
+      canvas.dataset.lookSuppressUntil = String(Date.now() + 350);
+      manualResume.current = true;
+      callbacks.current.onLookResume?.(
+        manualContinuationRoom(look.sample, currentRooms.current),
+      );
+      invalidate();
+    };
+    const suppressResidualClick = (event: MouseEvent) => {
+      if (
+        cancelledDragPointer.current !== null ||
+        Date.now() < Number(canvas.dataset.lookSuppressUntil || 0)
+      ) {
+        // Capture runs before Fiber's mesh click / pointer-missed handlers.
+        // A cancelled drag must not select the painting underneath its release.
+        event.preventDefault();
+        event.stopImmediatePropagation();
+      }
+    };
+    const blur = () => cancelMouseLook(true);
+    canvas.addEventListener("pointerdown", down);
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", finish);
+    window.addEventListener("pointercancel", finish);
+    window.addEventListener("blur", blur);
+    canvas.addEventListener("click", suppressResidualClick, true);
+    return () => {
+      const look = mouseLook.current;
+      if (look && canvas.hasPointerCapture(look.pointerId))
+        canvas.releasePointerCapture(look.pointerId);
+      mouseLook.current = null;
+      manualResume.current = false;
+      cancelledDragPointer.current = null;
+      canvas.removeEventListener("pointerdown", down);
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", finish);
+      window.removeEventListener("pointercancel", finish);
+      window.removeEventListener("blur", blur);
+      canvas.removeEventListener("click", suppressResidualClick, true);
+    };
+    // Event input only edits a pending sample; CameraDirector remains the sole
+    // owner of the rendered pose, including during manual looking.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gl, invalidate]);
+  useEffect(() => {
     const controller = controls.current;
     if (!controller) return;
+    if (mouseLook.current?.active) {
+      if (appliedId.current === navigationId) return;
+      cancelMouseLook(false);
+    }
     try {
       const overview =
         destination.kind === "home" || destination.kind === "room";
@@ -357,12 +585,16 @@ export function CameraDirector({
         return;
       }
       if (!sameRequest) {
+        const visibleArtworkId = manualResume.current
+          ? tour.current.artworkId
+          : null;
+        if (!manualResume.current) setLookState("idle");
         promenade.current = null;
         previousActiveTime.current = 0;
         clearWake();
         tour.current = {
           timeline: new TourTimeline(),
-          artworkId: null,
+          artworkId: visibleArtworkId,
           walk,
           lastMetadataTime: -Infinity,
           startedAt: 0,
@@ -375,7 +607,7 @@ export function CameraDirector({
           performance.now() / 1000,
           allowedRef.current,
         );
-        gl.domElement.dataset.tourArtwork = "";
+        gl.domElement.dataset.tourArtwork = visibleArtworkId ?? "";
         gl.domElement.dataset.tourState = allowedRef.current
           ? "waiting"
           : "off";
@@ -383,7 +615,7 @@ export function CameraDirector({
         gl.domElement.dataset.tourCycle = "0";
         gl.domElement.dataset.tourElapsed = "0";
         gl.domElement.dataset.tourSpeed = "0";
-        callbacks.current.onTourArtwork?.(null);
+        callbacks.current.onTourArtwork?.(visibleArtworkId);
       }
       const wasTraveling = journey.current !== null;
       const from =
@@ -404,15 +636,34 @@ export function CameraDirector({
         !sameRequest &&
         walk &&
         !first.current &&
-        !reducedMotion
+        (!reducedMotion || manualResume.current)
       ) {
-        promenade.current = new ContinuousPromenade(walk, from, data.rooms);
+        const wasManualLook = manualResume.current;
+        manualResume.current = false;
+        promenade.current = reducedMotion
+          ? null
+          : new ContinuousPromenade(walk, from, data.rooms, undefined, {
+              manualLook: wasManualLook,
+            });
         tour.current.hasStarted = true;
         tour.current.startedAt = tour.current.timeline.time;
         tour.current.dueAt = 0;
         gl.domElement.dataset.transitionKind = "resume";
         gl.domElement.dataset.transitionDuration = "0";
-        gl.domElement.dataset.tourState = "walking";
+        gl.domElement.dataset.tourState = reducedMotion
+          ? "off"
+          : !allowedRef.current
+            ? "paused"
+            : (promenade.current?.phase ?? "walking");
+        setLookState(
+          !allowedRef.current
+            ? "idle"
+            : promenade.current?.phase === "blocked"
+              ? "blocked"
+              : wasManualLook
+                ? "resuming"
+                : "idle",
+        );
         // The last rendered pose is the first resumed pose. No travel to an
         // arrival marker, no reset to a stored tour time, no second camera.
         applySample(from, 0);
@@ -554,6 +805,21 @@ export function CameraDirector({
     const now = presentationTime.current;
     if (now === null) return;
     gl.domElement.dataset.cameraSampleTime = (now * 1000).toFixed(4);
+    if (mouseLook.current?.active) {
+      tour.current.timeline.update(now, false);
+      applySample(mouseLook.current.sample, 0);
+      // The paused tour clock does not advance while looking around. Follow
+      // the rendered gaze on presentation time, without changing its framing.
+      if (now - lastManualMetadataTime.current >= 0.15) {
+        lastManualMetadataTime.current = now;
+        updateVisibleArtwork(
+          mouseLook.current.sample,
+          continuationRoom(mouseLook.current.sample, data.rooms),
+        );
+      }
+      invalidate();
+      return;
+    }
     const activeTime = tour.current.timeline.update(now, allowedRef.current);
     // A menu layout or texture upload must not be paid back as a camera jump.
     // Advance at most one 30 Hz display step after a missed presentation frame.
@@ -599,7 +865,11 @@ export function CameraDirector({
       } else invalidate();
       return;
     }
-    if (!allowedRef.current || !rendered.current) return;
+    if (!allowedRef.current || !rendered.current) {
+      if (tour.current.hasStarted && !mouseLook.current?.active)
+        gl.domElement.dataset.tourState = "paused";
+      return;
+    }
     const state = tour.current;
     if (!state.walk) return;
     if (!state.hasStarted) {
@@ -623,35 +893,35 @@ export function CameraDirector({
       );
     }
     const sample = promenade.current.step(activeDelta, size.width, size.height);
+    const promenadePhase = promenade.current.phase;
+    setLookState(
+      promenadePhase === "blocked"
+        ? "blocked"
+        : promenadePhase === "resuming"
+          ? "resuming"
+          : "idle",
+    );
+    if (promenadePhase !== "walking") {
+      // Keep both pose and lens at release during the brief pause, or if no
+      // collision-free continuation exists. A later destination still works.
+      applySample(sample, delta);
+      gl.domElement.dataset.tourState = promenadePhase;
+      gl.domElement.dataset.tourSpeed = "0";
+      if (promenadePhase === "resuming") invalidate();
+      return;
+    }
     const lens = automaticLensState.current;
     if (activeTime - lens.measuredAt >= 0.15) {
       lens.measuredAt = activeTime;
-      const shell = gl.domElement.closest(".visit-shell");
+      const shell = gl.domElement.closest<HTMLElement>(".visit-shell");
       const bounds = gl.domElement.getBoundingClientRect();
-      const dock = shell?.querySelector(".visit-dock")?.getBoundingClientRect();
-      const preview = shell
-        ?.querySelector(".visit-auto-preview")
-        ?.getBoundingClientRect();
-      const portrait =
-        size.width <= 700 && !(size.height <= 520 && size.width > size.height);
       lens.target = automaticLens(
         sample,
         data.artworks,
         size.width,
         size.height,
-        {
-          top: portrait ? 128 : 100,
-          bottom: Math.max(
-            16,
-            bounds.bottom -
-              (portrait && preview
-                ? preview.top
-                : (dock?.top ?? bounds.bottom - 16)) +
-              12,
-          ),
-          left: 16,
-          right: !portrait && preview ? bounds.right - preview.left + 16 : 16,
-        },
+        automaticTourInsets(shell, size.width, size.height, bounds.bottom),
+        78,
       );
     }
     // Widen promptly on approach, relax slowly on departure: no sudden zoom
@@ -691,18 +961,7 @@ export function CameraDirector({
     ).toFixed(4);
     if (activeTime - state.lastMetadataTime >= 0.3) {
       state.lastMetadataTime = activeTime;
-      const artworkId = visibleWalkArtwork(
-        sample,
-        tourArtworks(data, state.walk.roomId),
-        size.width,
-        size.height,
-        state.artworkId,
-      );
-      if (artworkId !== state.artworkId) {
-        state.artworkId = artworkId;
-        gl.domElement.dataset.tourArtwork = artworkId ?? "";
-        callbacks.current.onTourArtwork?.(artworkId);
-      }
+      updateVisibleArtwork(sample, state.walk.roomId);
     }
     invalidate();
   }, -0.5);

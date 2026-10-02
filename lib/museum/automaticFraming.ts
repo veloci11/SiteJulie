@@ -17,6 +17,41 @@ export interface ViewInsets {
   right: number;
 }
 
+/** Reserve the automatic artwork card before it mounts. Its arrival, hover or
+ * replacement must not change the lens. CSS and framing share pixel variables;
+ * zero is intentional where the card is hidden on a compact viewport.
+ */
+export function automaticTourInsets(
+  shell: HTMLElement | null,
+  width: number,
+  height: number,
+  canvasBottom: number,
+): ViewInsets {
+  const shortLandscape = height <= 520 && width > height;
+  const portrait = width <= 700 && !shortLandscape;
+  const hidden = width <= 700 || (shortLandscape && width <= 1000);
+  const style = shell ? getComputedStyle(shell) : null;
+  const pixelValue = (name: string, fallback: number) => {
+    const value = Number.parseFloat(style?.getPropertyValue(name) ?? "");
+    return Number.isFinite(value) ? Math.max(0, value) : fallback;
+  };
+  const previewWidth = pixelValue(
+    "--tour-preview-width",
+    hidden ? 0 : shortLandscape ? 300 : 280,
+  );
+  const previewEdge = pixelValue(
+    "--tour-preview-edge",
+    hidden ? 0 : shortLandscape ? 14 : 24,
+  );
+  const dock = shell?.querySelector(".visit-dock")?.getBoundingClientRect();
+  return {
+    top: portrait ? 128 : 100,
+    bottom: Math.max(16, canvasBottom - (dock?.top ?? canvasBottom - 16) + 12),
+    left: 16,
+    right: previewWidth + previewEdge + 16,
+  };
+}
+
 /** Fit the paintings ahead without moving the collision-checked walking route. */
 export function automaticLens(
   sample: CameraMotionSample,
@@ -24,6 +59,7 @@ export function automaticLens(
   width: number,
   height: number,
   inset: ViewInsets,
+  maxFov = 170,
 ) {
   const camera = new PerspectiveCamera();
   camera.position.fromArray(sample.position);
@@ -74,7 +110,7 @@ export function automaticLens(
     }
   }
   return {
-    fov: Math.min(170, (Math.atan(tangent) * 360) / Math.PI),
+    fov: Math.min(maxFov, (Math.atan(tangent) * 360) / Math.PI),
     offsetX: (inset.right - inset.left) / 2,
     offsetY: (inset.bottom - inset.top) / 2,
   };

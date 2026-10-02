@@ -22,6 +22,7 @@ import {
   BookOpen,
   Grid2X2,
   Home,
+  Info,
   Mail,
   Menu,
   X,
@@ -37,8 +38,11 @@ import {
 import { getRoomName } from "@/lib/museum/config";
 import { groupCollections } from "@/lib/data/collections";
 import { TourArtworkPreview } from "./TourArtworkPreview";
+import { CollectionTabs } from "./CollectionTabs";
+import { VisitHeaderNavigation } from "./VisitHeaderNavigation";
 import ContactActions from "@/components/public/ContactActions";
 import { useLiveMuseumData, useRoomPreviewVersion } from "./useLiveMuseumData";
+import { useLiveRoomPreviews } from "./useLiveRoomPreviews";
 
 const MuseumCanvas = dynamic(() => import("./MuseumCanvas"), {
   ssr: false,
@@ -89,7 +93,11 @@ export default function MuseumShell({
   data: PublicData;
   initialDestination?: Destination;
 }) {
-  const { data, version: catalogueVersion } = useLiveMuseumData(initialData);
+  const [drawer, setDrawer] = useState<Drawer>(null);
+  const { data, version: catalogueVersion } = useLiveMuseumData(
+    initialData,
+    drawer === "rooms",
+  );
   const [destination, setDestination] =
     useState<Destination>(initialDestination);
   // Editorial routes describe the interface, not a place on a museum wall.
@@ -110,13 +118,27 @@ export default function MuseumShell({
       initialDestination.kind === "contact",
   );
   const [reducedMotion, setReducedMotion] = useState(false);
-  const [drawer, setDrawer] = useState<Drawer>(null);
-  const previewVersion = useRoomPreviewVersion(
-    catalogueVersion,
-    drawer === "rooms" || !revealed,
-  );
+  const [hasLookedAround, setHasLookedAround] = useState(false);
+  const [lookState, setLookState] = useState<
+    "dragging" | "resuming" | "blocked" | "idle"
+  >("idle");
+  const {
+    version: previewVersion,
+    ready: previewReady,
+    fingerprint: previewFingerprint,
+  } = useRoomPreviewVersion(catalogueVersion, drawer === "rooms" || !revealed);
+  const { images: roomPreviewImages, captureFrame: roomPreviewFrame } =
+    useLiveRoomPreviews(
+      data,
+      previewFingerprint,
+      previewReady,
+      drawer === "rooms",
+    );
   const [filter, setFilter] = useState("all");
   const [stripExpanded, setStripExpanded] = useState(true);
+  const [detailsOpen, setDetailsOpen] = useState(
+    initialDestination.kind === "artwork",
+  );
   const [tourArtworkId, setTourArtworkId] = useState<string | null>(null);
   const dock = useRef<HTMLElement>(null);
   const [selectedCollection, setSelectedCollection] = useState<string | null>(
@@ -173,9 +195,20 @@ export default function MuseumShell({
     if (activeArtwork) setSelectedCollection(activeArtwork.collection);
   }, [activeArtwork?.id, activeArtwork?.collection]);
   const overview = destination.kind === "home" || destination.kind === "room";
-  const canBrowseInline = overview || destination.kind === "artwork";
+  const canBrowseInline =
+    overview ||
+    destination.kind === "artwork" ||
+    destination.kind === "about" ||
+    destination.kind === "contact";
   const showStrip = stripExpanded && canBrowseInline;
-  const showDetails = ready && !failed && !!activeArtwork && !traveling;
+  const lookingAround = lookState === "dragging";
+  const showDetails =
+    ready &&
+    !failed &&
+    !!activeArtwork &&
+    !traveling &&
+    detailsOpen &&
+    !lookingAround;
   const showEditorial =
     destination.kind === "about" || destination.kind === "contact";
   const showHome =
@@ -205,10 +238,12 @@ export default function MuseumShell({
   const navigate = useCallback(
     (next: Destination, push = true, resume = false) => {
       setDrawer(null);
+      setDetailsOpen(next.kind === "artwork");
       const previous = lastDestination.current;
       if (
         JSON.stringify(next) === JSON.stringify(previous) &&
-        !travelingRef.current
+        !travelingRef.current &&
+        !resume
       )
         return;
       const editorial = next.kind === "about" || next.kind === "contact";
@@ -355,18 +390,26 @@ export default function MuseumShell({
   useEffect(() => {
     const node = dialog.current;
     if (!node) return;
-    if (drawer && !node.open) node.showModal();
+    if (drawer && !node.open) node.show();
     if (!drawer && node.open) {
+      const restoreFocus =
+        document.activeElement === document.body ||
+        node.contains(document.activeElement);
       node.close();
-      drawerOpener.current?.focus({ preventScroll: true });
+      if (restoreFocus) drawerOpener.current?.focus({ preventScroll: true });
     }
   }, [drawer]);
   useEffect(() => {
     const node = editorialDialog.current;
     if (!node) return;
-    if (showEditorial && !node.open) node.showModal();
+    // Content windows leave both navigation bars available.
+    if (showEditorial && !node.open) node.show();
     if (!showEditorial && node.open) {
+      const restoreFocus =
+        document.activeElement === document.body ||
+        node.contains(document.activeElement);
       node.close();
+      if (!restoreFocus) return;
       const opener = editorialOpener.current;
       if (opener?.isConnected && !opener.closest("dialog:not([open])"))
         opener.focus({ preventScroll: true });
@@ -407,12 +450,24 @@ export default function MuseumShell({
   );
   useEffect(() => {
     const key = (event: KeyboardEvent) => {
+      if (dialog.current?.open) {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          closeDrawer();
+        }
+        return;
+      }
+      if (editorialDialog.current?.open) {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          closeEditorial();
+        }
+        return;
+      }
       if (
         (event.target as HTMLElement).closest(
           "input,textarea,select,[contenteditable=true],[role=tablist]",
-        ) ||
-        dialog.current?.open ||
-        editorialDialog.current?.open
+        )
       )
         return;
       if (event.key === "Escape" && destination.kind !== "home") {
@@ -430,8 +485,31 @@ export default function MuseumShell({
     };
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
-  }, [destination.kind, roomId, adjacent, navigate, closeArtwork]);
+  }, [
+    destination.kind,
+    roomId,
+    adjacent,
+    navigate,
+    closeArtwork,
+    closeEditorial,
+    closeDrawer,
+  ]);
   useEffect(() => {
+    const tabs = dock.current?.querySelector<HTMLElement>(".visit-series-tabs");
+    const activeTab = tabs?.querySelector<HTMLElement>(
+      '[aria-selected="true"]',
+    );
+    if (tabs && activeTab) {
+      const left = activeTab.offsetLeft - tabs.offsetLeft;
+      if (
+        left < tabs.scrollLeft ||
+        left + activeTab.offsetWidth > tabs.scrollLeft + tabs.clientWidth
+      )
+        tabs.scrollTo({
+          left: Math.max(0, left - 8),
+          behavior: reducedMotion ? "instant" : "smooth",
+        });
+    }
     const node = filmstrip.current;
     const selected = Array.from(
       node?.querySelectorAll<HTMLElement>("[data-artwork]") ?? [],
@@ -488,6 +566,16 @@ export default function MuseumShell({
     roomId === "room-1"
       ? "La lumière, la couleur, une première rencontre."
       : "Une autre lumière. Le temps de s’attarder.";
+  const headerActive =
+    drawer === "artworks"
+      ? "artworks"
+      : destination.kind === "about"
+        ? "about"
+        : destination.kind === "contact"
+          ? "contact"
+          : activeArtwork
+            ? "artworks"
+            : "home";
   return (
     <div
       className={`visit-shell ${activeArtwork ? "is-artwork" : ""} ${showEditorial ? "is-editorial" : ""} ${traveling ? "is-traveling" : ""}`}
@@ -495,6 +583,7 @@ export default function MuseumShell({
       data-scene-destination={sceneDestination.kind}
       data-visit-room={roomId}
       data-room-autoplay={roomAutoplay}
+      data-drawer-open={!!drawer}
     >
       <a className="skip-link" href={classicUrl(destination, data.artworks)}>
         Accéder au catalogue sans la 3D
@@ -508,16 +597,16 @@ export default function MuseumShell({
           {data.settings.artistName}
           <span>{data.settings.tagline}</span>
         </Link>
-        <nav className="visit-navigation" aria-label="Navigation principale">
+        <VisitHeaderNavigation activeKey={headerActive}>
           <a
             href="/"
             onClick={(e) => menuLink(e, { kind: "home" })}
-            aria-current={destination.kind === "home" ? "page" : undefined}
+            aria-current={headerActive === "home" ? "page" : undefined}
           >
             Accueil
           </a>
           <button
-            aria-current={activeArtwork ? "page" : undefined}
+            aria-current={headerActive === "artworks" ? "page" : undefined}
             aria-haspopup="dialog"
             onClick={() => {
               setFilter("all");
@@ -529,18 +618,18 @@ export default function MuseumShell({
           <a
             href="/a-propos"
             onClick={(e) => menuLink(e, { kind: "about" })}
-            aria-current={destination.kind === "about" ? "page" : undefined}
+            aria-current={headerActive === "about" ? "page" : undefined}
           >
             À propos
           </a>
           <a
             href="/contact"
             onClick={(e) => menuLink(e, { kind: "contact" })}
-            aria-current={destination.kind === "contact" ? "page" : undefined}
+            aria-current={headerActive === "contact" ? "page" : undefined}
           >
             Contact
           </a>
-        </nav>
+        </VisitHeaderNavigation>
         <div className="visit-header-actions">
           <Link
             className="visit-catalogue gallery-view-switch"
@@ -568,6 +657,7 @@ export default function MuseumShell({
       >
         <div
           className="canvas-wrap"
+          inert={showEditorial || !!drawer}
           data-testid="museum-canvas"
           onPointerDown={(event) => {
             if (event.pointerType === "touch" && event.isPrimary)
@@ -609,10 +699,20 @@ export default function MuseumShell({
                 destination={sceneDestination}
                 navigationId={navigationId}
                 reducedMotion={reducedMotion}
-                onSelect={navigate}
+                onSelect={(next) => {
+                  if (Date.now() >= suppressClick.current) navigate(next);
+                }}
                 onArrive={onArrive}
                 onReady={onReady}
                 onTourArtwork={setTourArtworkId}
+                onLookStateChange={setLookState}
+                allowManualLook={!showEditorial && !drawer}
+                onLookResume={(roomId) => {
+                  if (showEditorial || drawer) return;
+                  setHasLookedAround(true);
+                  suppressClick.current = Date.now() + 350;
+                  navigate({ kind: "room", roomId }, true, true);
+                }}
                 onError={onError}
                 roomAutoplay={roomAutoplay}
                 resumeFromCurrent={resumeFromCurrent}
@@ -721,10 +821,35 @@ export default function MuseumShell({
             <span>Reprendre la visite</span>
           </button>
         )}
-        {showDetails && activeArtwork && (
+        {ready &&
+          !failed &&
+          overview &&
+          (!hasLookedAround || lookState === "blocked") && (
+            <p
+              className="visit-look-help"
+              role={lookState === "blocked" ? "status" : undefined}
+            >
+              {lookState === "blocked"
+                ? "Tournez un peu pour continuer"
+                : "Cliquez-glissez pour regarder"}
+            </p>
+          )}
+        {ready && !failed && activeArtwork && !traveling && !detailsOpen && (
+          <div
+            className="visit-artwork-caption"
+            aria-label="Œuvre sélectionnée"
+          >
+            <span title={activeArtwork.title}>{activeArtwork.title}</span>
+            <small>{priceLabel(activeArtwork)}</small>
+          </div>
+        )}
+        {ready && !failed && activeArtwork && (
           <aside
             className="visit-details"
             aria-label={`Fiche de ${activeArtwork.title}`}
+            data-visible={showDetails}
+            aria-hidden={!showDetails}
+            inert={!showDetails}
           >
             <div className="visit-details-top">
               <span className="eyebrow">
@@ -732,24 +857,13 @@ export default function MuseumShell({
               </span>
               <button
                 className="visit-icon"
-                aria-label="Revenir à la salle"
-                onClick={closeArtwork}
+                aria-label="Fermer les informations"
+                onClick={() => setDetailsOpen(false)}
               >
                 <X size={17} />
               </button>
             </div>
             <h2 title={activeArtwork.title}>{activeArtwork.title}</h2>
-            <p className="visit-medium">
-              {[
-                activeArtwork.technique,
-                activeArtwork.widthCm && activeArtwork.heightCm
-                  ? `${activeArtwork.widthCm} × ${activeArtwork.heightCm} cm`
-                  : "Échelle indicative · dimensions à préciser",
-                activeArtwork.year,
-              ]
-                .filter(Boolean)
-                .join(" · ")}
-            </p>
             <p className="visit-price">
               {priceLabel(activeArtwork)}
               {activeArtwork.availability !== "available" && (
@@ -758,8 +872,28 @@ export default function MuseumShell({
                 </span>
               )}
             </p>
-            {activeArtwork.description && (
-              <p className="visit-description">{activeArtwork.description}</p>
+            {(activeArtwork.technique ||
+              (activeArtwork.widthCm && activeArtwork.heightCm) ||
+              activeArtwork.year ||
+              activeArtwork.description) && (
+              <div className="visit-work-info">
+                <p className="visit-medium">
+                  {[
+                    activeArtwork.technique,
+                    activeArtwork.widthCm && activeArtwork.heightCm
+                      ? `${activeArtwork.widthCm} × ${activeArtwork.heightCm} cm`
+                      : null,
+                    activeArtwork.year,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
+                {activeArtwork.description && (
+                  <p className="visit-description">
+                    {activeArtwork.description}
+                  </p>
+                )}
+              </div>
             )}
             <div className="visit-detail-actions">
               <button
@@ -781,10 +915,18 @@ export default function MuseumShell({
             </div>
           </aside>
         )}
+        {(showEditorial || drawer) && !failed && (
+          <div
+            className="visit-editorial-shade"
+            aria-hidden="true"
+            onClick={drawer ? closeDrawer : closeEditorial}
+          />
+        )}
         {!failed && (
           <dialog
             ref={editorialDialog}
             className="visit-editorial visit-editorial-paper"
+            inert={!!drawer}
             onCancel={(event) => {
               event.preventDefault();
               closeEditorial();
@@ -877,6 +1019,7 @@ export default function MuseumShell({
                   <ContactActions
                     settings={data.settings}
                     artwork={contactArtwork}
+                    canSend={data.contactEnabled}
                   />
                   {contactArtwork && (
                     <button
@@ -895,11 +1038,11 @@ export default function MuseumShell({
       {ready &&
         !failed &&
         revealed &&
-        overview &&
-        !reducedMotion &&
-        !traveling &&
+        !showEditorial &&
+        ((overview && !reducedMotion && !traveling) || lookingAround) &&
         !drawer && (
           <TourArtworkPreview
+            lookingAround={lookingAround}
             collectionDescriptions={data.settings.collectionDescriptions}
             artwork={data.artworks.find((a) => a.id === tourArtworkId)}
             dock={dock}
@@ -922,9 +1065,20 @@ export default function MuseumShell({
               onClick={() => openDrawer("rooms")}
             >
               <DoorOpen size={20} strokeWidth={1.6} aria-hidden="true" />
-              <span>Changer de salle</span>
+              <span>Salles</span>
               <ChevronDown className="visit-room-chevron" size={14} />
             </button>
+            {canBrowseInline && (
+              <CollectionTabs
+                collections={roomCollections}
+                selected={currentCollection?.name}
+                reducedMotion={reducedMotion}
+                onSelect={(name) => {
+                  setSelectedCollection(name);
+                  setStripExpanded(true);
+                }}
+              />
+            )}
             <button
               className="visit-browse-toggle"
               aria-expanded={canBrowseInline ? showStrip : undefined}
@@ -947,7 +1101,7 @@ export default function MuseumShell({
               }}
             >
               <Grid2X2 size={16} />
-              <span>Les œuvres</span>
+              <span>Œuvres</span>
               {canBrowseInline && (
                 <ChevronDown
                   size={14}
@@ -955,6 +1109,21 @@ export default function MuseumShell({
                 />
               )}
             </button>
+            {activeArtwork && (
+              <button
+                className="visit-info-toggle"
+                aria-label={
+                  detailsOpen
+                    ? "Masquer les informations"
+                    : "Informations sur cette œuvre"
+                }
+                aria-expanded={detailsOpen}
+                onClick={() => setDetailsOpen((value) => !value)}
+              >
+                <Info size={17} />
+                <span>Infos</span>
+              </button>
+            )}
             <nav
               className="visit-work-steps"
               aria-label="Parcourir les œuvres de cette collection"
@@ -980,47 +1149,6 @@ export default function MuseumShell({
             </nav>
           </div>
           <div id="visit-collection-browser" hidden={!showStrip}>
-            <div className="visit-collections-row">
-              <span className="visit-collections-label">Collections :</span>
-              <div
-                className="visit-series-tabs"
-                role="tablist"
-                aria-label="Collections de cette salle"
-              >
-                {roomCollections.map((group) => (
-                  <button
-                    key={group.name}
-                    role="tab"
-                    tabIndex={group.name === currentCollection?.name ? 0 : -1}
-                    aria-selected={group.name === currentCollection?.name}
-                    aria-controls="visit-room-filmstrip"
-                    onClick={() => setSelectedCollection(group.name)}
-                    onKeyDown={(event) => {
-                      if (!["ArrowLeft", "ArrowRight"].includes(event.key))
-                        return;
-                      event.preventDefault();
-                      const index = roomCollections.findIndex(
-                        (g) => g.name === group.name,
-                      );
-                      const next =
-                        (index +
-                          (event.key === "ArrowRight" ? 1 : -1) +
-                          roomCollections.length) %
-                        roomCollections.length;
-                      setSelectedCollection(roomCollections[next].name);
-                      (
-                        event.currentTarget.parentElement?.children[
-                          next
-                        ] as HTMLButtonElement
-                      )?.focus();
-                    }}
-                  >
-                    {group.name}
-                    <span>{group.artworks.length} œuvres</span>
-                  </button>
-                ))}
-              </div>
-            </div>
             <div className="visit-filmstrip-row">
               <button
                 className="visit-strip-arrow visit-icon"
@@ -1157,10 +1285,6 @@ export default function MuseumShell({
               <Link href={classicUrl(destination, data.artworks)}>
                 Catalogue <ArrowUpRight size={16} />
               </Link>
-              <div className="visit-demo-note">
-                Version de démonstration · Titres et collections provisoires ·
-                Échelle indicative
-              </div>
             </nav>
           )}
           {drawer === "rooms" && (
@@ -1173,10 +1297,29 @@ export default function MuseumShell({
                 >
                   <div
                     className="visit-room-preview"
-                    style={{
-                      backgroundImage: `url(/api/museum/arrival?room=${id}&view=wide&v=${previewVersion})`,
-                    }}
-                  />
+                    style={
+                      previewReady || roomPreviewImages[id]
+                        ? {
+                            backgroundImage: `url(${roomPreviewImages[id] || `/api/museum/arrival?room=${id}&view=wide&v=${previewVersion}`})`,
+                          }
+                        : undefined
+                    }
+                    data-preview-ready={previewReady || !!roomPreviewImages[id]}
+                  >
+                    {!previewReady && !roomPreviewImages[id] && (
+                      <div className="visit-room-preview-pending">
+                        <div>
+                          {data.artworks
+                            .filter((a) => a.roomId === id)
+                            .slice(0, 3)
+                            .map((a) => (
+                              <img key={a.id} src={a.thumbnail} alt={a.alt} />
+                            ))}
+                        </div>
+                        <span>Aperçu de la salle en préparation</span>
+                      </div>
+                    )}
+                  </div>
                   <span className="eyebrow">
                     {data.artworks.filter((a) => a.roomId === id).length} œuvres
                   </span>
@@ -1224,45 +1367,60 @@ export default function MuseumShell({
                     {data.settings.collectionDescriptions[filter]}
                   </p>
                 )}
-              <div className="visit-art-grid">
-                {data.artworks
-                  .filter((a) => filter === "all" || a.collection === filter)
-                  .map((a) => (
-                    <button
-                      key={a.id}
-                      className="visit-art-card"
-                      data-availability={a.availability}
-                      aria-label={`Choisir ${a.title}`}
-                      aria-describedby={`selection-price-${a.id} selection-status-${a.id}`}
-                      aria-pressed={activeArtwork?.id === a.id}
-                      onClick={() => selectArtwork(a)}
-                    >
-                      <div>
-                        <img
-                          src={a.image}
-                          alt={a.alt}
-                          loading="lazy"
-                          crossOrigin="anonymous"
-                          decoding="async"
-                        />
+              {groupCollections(data.artworks, data.rooms)
+                .filter((group) => filter === "all" || group.name === filter)
+                .map((group) => (
+                  <section
+                    key={group.name}
+                    className="visit-art-collection"
+                    aria-label={group.name}
+                  >
+                    {filter === "all" && (
+                      <div className="visit-art-collection-heading">
+                        <h3>{group.name}</h3>
+                        <span>{group.artworks.length} œuvres</span>
                       </div>
-                      <span>
-                        <strong>{a.title}</strong>
-                        <ArrowUpRight size={16} />
-                      </span>
-                      <small id={`selection-price-${a.id}`}>
-                        {a.collection} · {priceLabel(a)}
-                      </small>
-                      <small id={`selection-status-${a.id}`}>
-                        {availabilityLabel(a)}
-                      </small>
-                    </button>
-                  ))}
-              </div>
+                    )}
+                    <div className="visit-art-grid">
+                      {group.artworks.map((a) => (
+                        <button
+                          key={a.id}
+                          className="visit-art-card"
+                          data-availability={a.availability}
+                          aria-label={`Choisir ${a.title}`}
+                          aria-describedby={`selection-price-${a.id} selection-status-${a.id}`}
+                          aria-pressed={activeArtwork?.id === a.id}
+                          onClick={() => selectArtwork(a)}
+                        >
+                          <div>
+                            <img
+                              src={a.image}
+                              alt={a.alt}
+                              loading="lazy"
+                              crossOrigin="anonymous"
+                              decoding="async"
+                            />
+                          </div>
+                          <span>
+                            <strong>{a.title}</strong>
+                            <ArrowUpRight size={16} />
+                          </span>
+                          <small id={`selection-price-${a.id}`}>
+                            {a.collection} · {priceLabel(a)}
+                          </small>
+                          <small id={`selection-status-${a.id}`}>
+                            {availabilityLabel(a)}
+                          </small>
+                        </button>
+                      ))}
+                    </div>
+                  </section>
+                ))}
             </>
           )}
         </div>
       </dialog>
+      {roomPreviewFrame}
       <span className="sr-only" role="status" aria-live="polite">
         {!traveling && activeArtwork
           ? `${activeArtwork.title}, ${getRoomName(roomId, data.artworks)}`

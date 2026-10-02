@@ -1807,3 +1807,19 @@
 .admin-showroom-size .admin-two { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
 .admin-showroom-size .admin-two label { min-width: 0; display: grid; gap: 6px; font-size: 12px; }
 .admin-showroom-size .admin-two input { width: 100%; min-width: 0; padding: 10px; border: 1px solid #bdc6b1; border-radius: 5px; background: white; color: inherit; }
+
+.admin-storage-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 24px; max-width: 1080px; }
+.admin-storage-card { min-width: 0; padding: 28px; border: 1px solid #ddd6c9; border-radius: 14px; background: #fffcf5; }
+.admin-storage-title { display: flex; gap: 12px; align-items: center; color: #526447; }
+.admin-storage-title h2 { font-family: var(--serif); font-size: 27px; font-weight: 500; color: #40392f; margin: 0; }
+.admin-storage-card p { font-size: 14px; line-height: 1.65; color: #6f6659; }
+.admin-storage-card .admin-storage-total { margin: 24px 0 16px; font-size: 34px; color: #40392f; }
+.admin-storage-total span { font-size: 15px; color: #7a7061; }
+.admin-storage-meter { height: 14px; border-radius: 20px; overflow: hidden; background: #e9e4d7; }
+.admin-storage-meter > span { display: block; min-width: 3px; height: 100%; border-radius: inherit; background: #667653; transition: width .3s ease; }
+.admin-storage-breakdown { display: grid; gap: 12px; border-top: 1px solid #e4ddcf; padding-top: 22px; margin: 24px 0; font-size: 13px; }
+.admin-storage-breakdown > div { display: flex; justify-content: space-between; gap: 12px; }
+.admin-storage-breakdown dd { margin: 0; color: #40392f; font-weight: 500; }
+.admin-storage-card small { display: block; line-height: 1.65; font-size: 12px; color: #817868; }
+.admin-storage-card .admin-storage-backup-date { margin: 25px 0; padding: 16px; background: #f0f2e9; border-radius: 8px; color: #526447; }
+@media (max-width: 1000px) { .admin-storage-grid { grid-template-columns: 1fr; } }

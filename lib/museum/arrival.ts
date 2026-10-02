@@ -32,7 +32,7 @@ export function arrivalFingerprint(
   return createHash("sha256")
     .update(
       JSON.stringify({
-        sceneVersion: "contemporary-vaulted-v21-planted-seating-alcoves",
+        sceneVersion: "contemporary-vaulted-v22-open-60deg-lens",
         rooms: data.rooms,
         artworks,
       }),

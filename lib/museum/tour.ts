@@ -13,7 +13,7 @@ import {
 
 export const TOUR_INITIAL_DELAY = 2;
 export const WALK_ACCELERATION_TIME = 2;
-export const MAX_WALK_SPEED = 0.28;
+export const MAX_WALK_SPEED = 0.34;
 export const MAX_WALK_YAW_RATE = Math.PI / 15;
 export const MAX_ARTWORK_GAZE_RATE = Math.PI / 15;
 export const WALK_EYE_HEIGHT = CAMERA_EYE_HEIGHT;
@@ -352,16 +352,20 @@ export function walkDistanceAt(walk: AmbientWalk, elapsed: number) {
 export function overviewFov(width: number, height: number) {
   const portrait = width <= 700 && height >= width;
   const referenceAspect = portrait ? 430 / 932 : 1.6;
-  const referenceFov = portrait ? 68 : 60;
+  const referenceFov = portrait ? 68 : 64;
   const aspect = width / height;
   return aspect <= referenceAspect
     ? referenceFov
-    : (2 *
-        Math.atan(
-          (Math.tan((referenceFov * Math.PI) / 360) * referenceAspect) / aspect,
-        ) *
-        180) /
-        Math.PI;
+    : Math.max(
+        60,
+        (2 *
+          Math.atan(
+            (Math.tan((referenceFov * Math.PI) / 360) * referenceAspect) /
+              aspect,
+          ) *
+          180) /
+          Math.PI,
+      );
 }
 export function overviewLensOffset(width: number, height: number) {
   const portrait = width <= 700 && height >= width;
@@ -691,6 +695,7 @@ export function visibleWalkArtwork(
   width: number,
   height: number,
   previousId: string | null,
+  inset = ambientTourInsets(width, height),
 ) {
   const camera = new PerspectiveCamera(sample.fov, width / height, 0.1, 120);
   camera.position.fromArray(sample.position);
@@ -704,8 +709,7 @@ export function visibleWalkArtwork(
     height,
   );
   camera.updateMatrixWorld();
-  const inset = ambientTourInsets(width, height),
-    centerX = (inset.left + width - inset.right) / 2,
+  const centerX = (inset.left + width - inset.right) / 2,
     centerY = (inset.top + height - inset.bottom) / 2;
   let best: string | null = null,
     score = Infinity;

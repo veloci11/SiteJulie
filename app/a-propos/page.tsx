@@ -3,8 +3,18 @@ import { ArrowUpRight } from "lucide-react";
 import { getPublicData } from "@/lib/data/repository";
 import PublicHeader from "@/components/public/PublicHeader";
 import PublicFooter from "@/components/public/PublicFooter";
+import { pageMetadata } from "@/lib/seo";
 export const dynamic = "force-dynamic";
-export const metadata = { title: "À propos" };
+export async function generateMetadata() {
+  const data = await getPublicData();
+  return pageMetadata(
+    data.settings,
+    "À propos",
+    data.settings.aboutText,
+    "/a-propos",
+    data.artworks[0],
+  );
+}
 export default async function About() {
   const data = await getPublicData();
   return (
@@ -43,7 +53,7 @@ export default async function About() {
           </Link>
         </article>
       </main>
-      <PublicFooter demo={data.mode === "demo"} />
+      <PublicFooter />
     </>
   );
 }

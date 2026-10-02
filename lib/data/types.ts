@@ -54,6 +54,8 @@ export interface SiteSettings {
   currency: Currency;
 }
 export interface PublicData {
+  /** Public capability flag; provider credentials stay on the server. */
+  contactEnabled?: boolean;
   artworks: Artwork[];
   settings: SiteSettings;
   mode: "demo" | "supabase" | "blob";

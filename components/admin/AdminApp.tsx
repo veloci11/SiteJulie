@@ -12,6 +12,7 @@ import {
   Eye,
   Save,
   X,
+  HardDrive,
 } from "lucide-react";
 import type { AdminArtwork, SiteSettings } from "@/lib/data/types";
 import {
@@ -32,6 +33,7 @@ import { slotCode, WALL_GUIDES } from "@/lib/admin/placement-guide";
 import { wallKey } from "@/lib/validation/placement";
 import RoomOverview from "./RoomOverview";
 import RoomLayoutEditor from "./RoomLayoutEditor";
+import StoragePanel from "./StoragePanel";
 import type { RoomLayoutDraft } from "@/lib/admin/room-layout";
 import "./admin.css";
 type Data = {
@@ -122,7 +124,9 @@ export default function AdminApp({
   );
   const [editing, setEditing] = useState<AdminArtwork | null>(null);
   const [roomEditing, setRoomEditing] = useState<string | null>(null);
-  const [tab, setTab] = useState<"artworks" | "settings">("artworks");
+  const [tab, setTab] = useState<"artworks" | "settings" | "storage">(
+    "artworks",
+  );
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -500,6 +504,19 @@ export default function AdminApp({
               <Settings size={18} />
               Textes & contact
             </button>
+            <button
+              className={tab === "storage" ? "active" : ""}
+              disabled={busy || Boolean(roomEditing)}
+              onClick={() =>
+                leave(() => {
+                  setTab("storage");
+                  setEditing(null);
+                })
+              }
+            >
+              <HardDrive size={18} />
+              Stockage & sauvegardes
+            </button>
           </nav>
         )}
         <div className="admin-sidebar-bottom">
@@ -652,6 +669,8 @@ export default function AdminApp({
               );
             }}
           />
+        ) : tab === "storage" ? (
+          <StoragePanel />
         ) : tab === "settings" ? (
           <SettingsEditor
             settings={data.settings}
@@ -1562,8 +1581,10 @@ function SettingsEditor({
             {field("email", "Adresse email publique")}
             {field("instagramUrl", "Lien Instagram")}
             <small>
-              Laissez l’email vide tant que l’adresse n’est pas confirmée. Le
-              contact ouvre l’application de messagerie du visiteur.
+              Laissez l’email vide tant que l’adresse n’est pas confirmée. Cette
+              adresse reçoit les messages du formulaire et reste proposée pour
+              écrire directement. L’envoi du formulaire nécessite la
+              configuration Resend sur l’hébergement.
             </small>
             <label>
               Devise par défaut

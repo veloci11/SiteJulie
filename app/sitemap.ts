@@ -1,20 +1,19 @@
 import type { MetadataRoute } from "next";
 import { getPublicData } from "@/lib/data/repository";
+import { publicIndexingEnabled, siteOrigin } from "@/lib/seo";
 export const dynamic = "force-dynamic";
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  if (
-    process.env.MUSEUM_PUBLIC_INDEXING !== "1" ||
-    !process.env.NEXT_PUBLIC_SITE_URL
-  )
-    return [];
+  if (!publicIndexingEnabled()) return [];
   const data = await getPublicData();
   if (data.mode === "demo") return [];
-  const origin = process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, "");
+  const origin = siteOrigin()!;
   return [
     "",
     "/oeuvres",
     "/a-propos",
     "/contact",
+    "/mentions-legales",
+    "/confidentialite",
     ...data.artworks.map((a) => `/oeuvres/${encodeURIComponent(a.slug)}`),
   ].map((path) => ({ url: origin + path }));
 }

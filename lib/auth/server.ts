@@ -1,3 +1,4 @@
+import "server-only";
 import { cookies, headers } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import {
@@ -10,6 +11,22 @@ import { ServiceError } from "@/lib/validation/artwork";
 const globalAuth = globalThis as typeof globalThis & { museumDemoKey?: string };
 const demoKey = () =>
   (globalAuth.museumDemoKey ??= randomBytes(32).toString("hex"));
+function validSession(value: string, secret: string) {
+  const match = /^(\d{13})\.([a-f0-9]{64})$/.exec(value);
+  if (!match) return false;
+  const expires = Number(match[1]);
+  if (
+    !Number.isSafeInteger(expires) ||
+    expires <= Date.now() ||
+    expires > Date.now() + 8 * 3600000
+  )
+    return false;
+  const expected = createHmac("sha256", secret).update(match[1]).digest("hex");
+  return timingSafeEqual(
+    Buffer.from(match[2], "hex"),
+    Buffer.from(expected, "hex"),
+  );
+}
 export function isDemo() {
   return (
     process.env.MUSEUM_DATA_MODE === "demo" &&
@@ -71,33 +88,14 @@ export async function requireAdmin() {
   if (isDemo()) {
     assertLocalHost((await headers()).get("host"));
     const value = (await cookies()).get("museum_demo")?.value || "";
-    const [expires, signature] = value.split(".");
-    const expected = createHmac("sha256", demoKey())
-      .update(expires || "")
-      .digest("hex");
-    if (
-      !signature ||
-      signature.length !== expected.length ||
-      !timingSafeEqual(Buffer.from(signature), Buffer.from(expected)) ||
-      Number(expires) < Date.now()
-    )
+    if (!validSession(value, demoKey()))
       throw new ServiceError("Connectez-vous à l’administration.", 401);
     return { id: "local-demo-admin", demo: true as const };
   }
   if (isBlob()) {
     const secret = process.env.MUSEUM_SESSION_SECRET || "";
     const value = (await cookies()).get("museum_admin")?.value || "";
-    const [expires, signature] = value.split(".");
-    const expected = createHmac("sha256", secret)
-      .update(expires || "")
-      .digest("hex");
-    if (
-      secret.length < 32 ||
-      !signature ||
-      signature.length !== expected.length ||
-      !timingSafeEqual(Buffer.from(signature), Buffer.from(expected)) ||
-      Number(expires) < Date.now()
-    )
+    if (secret.length < 32 || !validSession(value, secret))
       throw new ServiceError("Connectez-vous à l’administration.", 401);
     return { id: "vercel-blob-admin", demo: false as const };
   }

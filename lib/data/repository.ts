@@ -5,6 +5,11 @@ import {
   collectionKey,
 } from "./collections";
 import { headers } from "next/headers";
+import { cache } from "react";
+import {
+  contactConfigured,
+  effectiveContactSettings,
+} from "@/lib/contact/config";
 import type { AdminArtwork, PublicData, SiteSettings } from "./types";
 import {
   isDemo,
@@ -24,12 +29,13 @@ import {
   settingsSchema,
   blankSettings,
 } from "@/lib/validation/artwork";
-export async function getPublicData(): Promise<PublicData> {
+export const getPublicData = cache(async (): Promise<PublicData> => {
   if (isDemo()) {
     assertLocalHost((await headers()).get("host"));
     const data = await readLocal();
     return {
       mode: "demo",
+      contactEnabled: false,
       settings: data.settings,
       rooms: data.rooms,
       artworks: normalizeCollectionOrder(
@@ -41,9 +47,11 @@ export async function getPublicData(): Promise<PublicData> {
   if (isBlob()) {
     await headers();
     const data = await readBlob();
+    const settings = effectiveContactSettings(data.settings);
     return {
       mode: "blob",
-      settings: data.settings,
+      contactEnabled: contactConfigured(settings.email),
+      settings,
       rooms: data.rooms,
       artworks: normalizeCollectionOrder(
         data.artworks.filter((a) => a.publication === "published"),
@@ -66,14 +74,18 @@ export async function getPublicData(): Promise<PublicData> {
     ...data,
     artworks: normalizeCollectionOrder(data.artworks, data.rooms),
     mode: "supabase",
+    contactEnabled: contactConfigured(data.settings.email),
   };
-}
+});
 export async function getAdminData() {
   await requireAdmin();
   if (isDemo() || isBlob()) {
     const data = isDemo() ? await readLocal() : await readBlob();
     return {
       ...data,
+      settings: isBlob()
+        ? effectiveContactSettings(data.settings)
+        : data.settings,
       artworks: normalizeCollectionOrder(data.artworks, data.rooms),
     };
   }

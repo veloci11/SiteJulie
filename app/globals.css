@@ -866,10 +866,20 @@ select:focus-visible {
   font-size: 22px;
   color: var(--ink);
 }
-.public-footer > div {
+.public-footer nav {
   display: flex;
   align-items: center;
   gap: 30px;
+  flex-wrap: wrap;
+}
+.public-footer nav a {
+  font-size: 13px;
+  color: var(--muted);
+}
+.public-footer nav a:hover {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 4px;
 }
 .artwork-page {
   padding: 35px 7% 70px;
@@ -988,6 +998,110 @@ select:focus-visible {
   flex-direction: column;
   align-items: flex-start;
   gap: 15px;
+}
+.contact-form {
+  width: 100%;
+  max-width: 620px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.contact-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.contact-form-row > div {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+.contact-form label {
+  font-size: 13px;
+  font-weight: 500;
+}
+.contact-form input,
+.contact-form textarea {
+  width: 100%;
+  min-width: 0;
+  padding: 13px 14px;
+  border: 1px solid #a89c87;
+  border-radius: 5px;
+  background: #fffdf8;
+  color: var(--ink);
+  font-size: 16px;
+}
+.contact-form textarea {
+  resize: vertical;
+  min-height: 130px;
+}
+.contact-form > .button {
+  align-self: flex-start;
+  min-height: 46px;
+}
+.contact-form .contact-honeypot {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+.contact-privacy {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+.contact-form-notice {
+  width: 100%;
+  padding: 16px 18px;
+  border-left: 2px solid var(--gold);
+  background: var(--paper-deep);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.contact-form-error {
+  color: #8d3429;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.contact-success {
+  padding: 22px;
+  background: #e8ebde;
+  display: grid;
+  gap: 12px;
+  line-height: 1.6;
+}
+.contact-success p {
+  font-weight: 500;
+}
+.contact-success span {
+  font-size: 13px;
+}
+.contact-mailto {
+  margin-top: 8px;
+}
+@media (max-width: 767px), (pointer: coarse) and (max-width: 1100px) {
+  .site-header a.desktop-visit-link,
+  .artwork-page a.desktop-visit-link {
+    display: none;
+  }
+}
+@media (max-width: 700px) {
+  .contact-form-row {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .catalogue-caption p {
+    font-size: 13px;
+  }
+  .catalogue-card > small {
+    font-size: 12px;
+    line-height: 1.6;
+  }
+  .site-header nav a {
+    min-height: 44px;
+  }
 }
 .contact-actions > .button {
   max-width: 100%;
@@ -1466,13 +1580,8 @@ select:focus-visible {
     flex-direction: column;
     gap: 15px;
   }
-  .public-footer > div {
-    justify-content: space-between;
-    gap: 12px;
-    font-size: 9px;
-  }
-  .public-footer > div small {
-    font-size: 8px;
+  .public-footer nav {
+    gap: 14px 20px;
   }
   .artwork-page {
     padding: 20px 20px 45px;
@@ -1615,6 +1724,30 @@ select:focus-visible {
   margin: 0 0 30px;
   color: #65574a;
 }
+.collection-mobile-copy {
+  display: none;
+}
+@media (max-width: 700px) {
+  .catalogue-collection > .collection-copy {
+    display: none;
+  }
+  .collection-mobile-copy {
+    display: block;
+    margin-bottom: 24px;
+    font-size: 13px;
+    line-height: 1.8;
+  }
+  .collection-mobile-copy summary {
+    cursor: pointer;
+    min-height: 44px;
+    padding: 8px 0;
+    color: var(--muted);
+  }
+  .collection-mobile-copy p {
+    padding: 10px 0;
+    white-space: pre-line;
+  }
+}
 .about-courses {
   margin-top: 36px;
   padding-top: 24px;
@@ -1659,3 +1792,22 @@ a.gallery-view-switch svg {
     font-size: 10px;
   }
 }
+
+@media (max-width: 700px) {
+  .catalogue-caption p {
+    font-size: 13px;
+  }
+  .catalogue-card > small {
+    font-size: 12px;
+    line-height: 1.6;
+  }
+}
+
+.legal-page { max-width: 900px; margin: 0 auto; padding: 75px 7% 90px; }
+.legal-page h1 { font-family: var(--serif); font-size: clamp(42px, 6vw, 76px); font-weight: 400; margin: 16px 0; }
+.legal-updated { font-size: 12px; color: var(--muted); }
+.legal-page section { margin-top: 36px; }
+.legal-page h2 { font-family: var(--serif); font-size: 30px; font-weight: 500; margin-bottom: 12px; }
+.legal-page p { font-size: 15px; line-height: 1.85; color: var(--muted); margin: 12px 0; }
+.legal-page a, .contact-privacy a { text-decoration: underline; text-underline-offset: 3px; overflow-wrap: anywhere; }
+@media (max-width: 700px) { .legal-page { padding: 38px 6% 60px; } .legal-page h2 { font-size: 26px; } }

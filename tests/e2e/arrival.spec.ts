@@ -1,35 +1,25 @@
 import { test, expect } from "@playwright/test";
 
-test("the server-rendered gallery image is visible with JavaScript disabled", async ({
+test("the complete catalogue remains usable with JavaScript disabled", async ({
   browser,
+  request,
 }) => {
   const context = await browser.newContext({
     javaScriptEnabled: false,
     viewport: { width: 390, height: 844 },
   });
   const page = await context.newPage();
+  const data = await (await request.get("/api/museum/data")).json();
   try {
     await page.goto("http://127.0.0.1:3000/");
-    const image = page.locator("picture.visit-arrival img");
-    await expect(image).toBeVisible();
-    expect(
-      await image.evaluate(
-        (img: HTMLImageElement) => img.complete && img.naturalWidth > 400,
-      ),
-    ).toBe(true);
-    expect(
-      await image.evaluate((img: HTMLImageElement) => img.currentSrc),
-    ).toContain("view=portrait");
-    await expect(page.locator(".visit-hero")).toContainText("Visages");
-    await expect(page.locator(".visit-loading")).toHaveCount(0);
+    await expect(page.locator(".catalogue-card").first()).toBeVisible();
+    await expect(page.locator(".catalogue-card")).toHaveCount(
+      data.artworks.length,
+    );
     await expect(page.locator("canvas")).toHaveCount(0);
     await page.screenshot({
-      path: "artifacts/contemporary/arrival-no-javascript-mobile.png",
+      path: "artifacts/finishing-qa/catalogue-no-javascript.png",
     });
-    await page
-      .getByRole("link", { name: "Voir le catalogue", exact: true })
-      .click();
-    await expect(page.locator(".catalogue-card")).toHaveCount(8);
   } finally {
     await context.close();
   }

@@ -806,7 +806,7 @@ describe("Comfortable walking attention", () => {
     const empty = createAmbientWalk("room-1", data.rooms);
     expect(walk.period).toBeGreaterThan(80);
     expect(walk.period).toBeLessThan(140);
-    expect(walk.speed).toBe(0.28);
+    expect(walk.speed).toBe(0.34);
     expect(empty.speed).toBeLessThanOrEqual(walk.speed);
     for (const [width, height] of [
       [390, 844],
@@ -1225,9 +1225,13 @@ describe("Direct manual journeys and exact arrival", () => {
       expect(sample.offsetY).toBeCloseTo(reference.offsetY * scale, 10);
       const portrait = width <= 700 && height > width,
         ref = portrait ? 430 / 932 : 1.6,
-        base = portrait ? 68 : 60;
+        base = portrait ? 68 : 64;
       expect(Math.tan((pose.fov! * Math.PI) / 360)).toBeCloseTo(
-        Math.tan((base * Math.PI) / 360) * Math.min(1, ref / (width / height)),
+        Math.max(
+          Math.tan((60 * Math.PI) / 360),
+          Math.tan((base * Math.PI) / 360) *
+            Math.min(1, ref / (width / height)),
+        ),
         10,
       );
     }

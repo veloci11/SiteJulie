@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { scryptSync } from "node:crypto";
+import { createHmac, scryptSync } from "node:crypto";
 
 const session = vi.hoisted(() => ({ cookies: new Map<string, string>() }));
 
@@ -39,6 +39,26 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllEnvs());
 
 describe("Single-account Vercel Blob administration", () => {
+  it("rejects expired, malformed and excessively long sessions even with a valid signature", async () => {
+    for (const expires of [
+      "NaN",
+      "Infinity",
+      String(Date.now() - 60000),
+      String(Date.now() + 48 * 3600000),
+    ]) {
+      const signature = createHmac("sha256", "s".repeat(48))
+        .update(expires)
+        .digest("hex");
+      session.cookies.set("museum_admin", `${expires}.${signature}`);
+      await expect(requireAdmin()).rejects.toMatchObject({ status: 401 });
+    }
+    await enterBlobAdmin("admin-test", "correct-password");
+    session.cookies.set(
+      "museum_admin",
+      session.cookies.get("museum_admin") + ".extra",
+    );
+    await expect(requireAdmin()).rejects.toMatchObject({ status: 401 });
+  });
   it("opens a signed server session only with the configured credentials", async () => {
     await expect(
       enterBlobAdmin("admin-test", "wrong-password"),

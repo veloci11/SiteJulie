@@ -15,16 +15,21 @@ export function TourArtworkPreview({
   dock,
   onSelect,
   collectionDescriptions,
+  lookingAround = false,
 }: {
   artwork: Artwork | undefined;
   collectionDescriptions?: Record<string, string>;
+  lookingAround?: boolean;
   dock: RefObject<HTMLElement | null>;
   onSelect: (destination: Destination) => void;
 }) {
   const button = useRef<HTMLButtonElement>(null);
   const [bottom, setBottom] = useState<number | null>(null);
   const [held, setHeld] = useState<Artwork | null>(null);
-  const visible = held ?? artwork;
+  const visible = lookingAround ? artwork : (held ?? artwork);
+  useEffect(() => {
+    if (lookingAround) setHeld(null);
+  }, [lookingAround]);
   useEffect(() => {
     const node = dock.current;
     const shell = node?.closest(".visit-shell");

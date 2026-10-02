@@ -6,7 +6,10 @@ import "@fontsource/dm-sans/400.css";
 import "@fontsource/dm-sans/500.css";
 import "./globals.css";
 import "./museum.css";
+import { publicIndexingEnabled, siteOrigin } from "@/lib/seo";
 export const metadata: Metadata = {
+  verification: { google: process.env.GOOGLE_SITE_VERIFICATION },
+  metadataBase: siteOrigin() ? new URL(siteOrigin()!) : undefined,
   title: {
     default: "Julie Thiam — Artiste peintre",
     template: "%s | Julie Thiam",
@@ -14,12 +17,8 @@ export const metadata: Metadata = {
   description:
     "Une visite parmi les couleurs. Découvrez les œuvres et entrez dans une galerie en trois dimensions.",
   robots: {
-    index:
-      process.env.MUSEUM_PUBLIC_INDEXING === "1" &&
-      ["supabase", "blob"].includes(process.env.MUSEUM_DATA_MODE || ""),
-    follow:
-      process.env.MUSEUM_PUBLIC_INDEXING === "1" &&
-      ["supabase", "blob"].includes(process.env.MUSEUM_DATA_MODE || ""),
+    index: publicIndexingEnabled(),
+    follow: publicIndexingEnabled(),
   },
 };
 export default function RootLayout({

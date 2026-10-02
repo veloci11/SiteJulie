@@ -49,8 +49,11 @@ images publiées utilisent des URL temporaires de 60 secondes.
    | `MUSEUM_ADMIN_USERNAME`      | Identifiant unique de l’administrateur            |
    | `MUSEUM_ADMIN_PASSWORD_HASH` | Résultat `scrypt$...` de `npm run admin:hash`     |
    | `MUSEUM_SESSION_SECRET`      | Résultat de `openssl rand -base64 48`             |
-   | `NEXT_PUBLIC_SITE_URL`       | `https://juliethiam.art`                          |
+   | `NEXT_PUBLIC_SITE_URL`       | `https://www.juliethiam.art`                          |
    | `MUSEUM_PUBLIC_INDEXING`     | `0` pendant la préparation ; `1` après validation |
+
+   L’origine doit correspondre au domaine servi après redirection (`www` ici) :
+   le formulaire de contact vérifie cette origine, et les URLs canoniques l’utilisent.
 
    Ne pas recopier `MUSEUM_LOCAL_PREVIEW`, `MUSEUM_LOCAL_DATA_DIR`, `.env.local`
    ni les fichiers de `.local/`. Le contrôle de build refuse le mode local et

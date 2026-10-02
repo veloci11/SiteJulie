@@ -1,6 +1,7 @@
 import sharp from "sharp";
 import type { ArrivalCapture } from "./arrivalGeneration";
 import { arrivalRooms, arrivalViews } from "./arrivalImage";
+import { arrivalFingerprint } from "./arrival";
 
 export const captureArrivalBatch: ArrivalCapture = async (
   data,
@@ -47,18 +48,18 @@ export const captureArrivalBatch: ArrivalCapture = async (
               return route.abort();
             return route.continue();
           });
-          await page.goto(`${origin}/?vue=salle&salle=${room}`, {
-            waitUntil: "domcontentloaded",
-            timeout: 60_000,
-          });
+          await page.goto(
+            `${origin}/visite/apercu?room=${room}&fingerprint=${arrivalFingerprint(data)}`,
+            {
+              waitUntil: "domcontentloaded",
+              timeout: 60_000,
+            },
+          );
           await page
             .locator(
               'canvas[data-navigation-state="arrived"][data-all-rooms-ready="true"]',
             )
             .waitFor({ timeout: 60_000 });
-          await page
-            .locator(".visit-arrival.is-ready")
-            .waitFor({ state: "attached", timeout: 60_000 });
           await page.waitForTimeout(1000);
           await page.addStyleTag({
             content:

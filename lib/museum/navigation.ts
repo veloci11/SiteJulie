@@ -17,7 +17,7 @@ import {
   type Vec3,
 } from "./config";
 export const CAMERA_RADIUS = 0.32;
-export const CAMERA_FOV = 50;
+export const CAMERA_FOV = 60;
 export const MAX_CAMERA_SPEED = 3.2;
 export const MAX_CAMERA_ANGULAR_SPEED = (40 * Math.PI) / 180;
 export const CAMERA_EYE_HEIGHT = 2.05;
@@ -143,10 +143,43 @@ export function artworkPose(
     !segmentIsClear(positionAt(d), positionAt(d), obstacles)
   )
     d = Math.min(maxDistance, d + 0.05);
-  if (!segmentIsClear(positionAt(d), positionAt(d), obstacles))
+  const circulation = navigationNodes([artwork.roomId])
+    .map((point) => [point[0], CAMERA_EYE_HEIGHT, point[2]] as Vec3)
+    .find((point) => segmentIsClear(point, point, obstacles));
+  const reachable = (value: number) => {
+    if (!circulation) return false;
+    if (!segmentIsClear(positionAt(value), positionAt(value), obstacles))
+      return false;
+    try {
+      safeRoute(
+        circulation,
+        positionAt(value),
+        [artwork.roomId],
+      );
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  // A point can clear every object yet sit in an enclosed pocket between
+  // furniture. Use the accessible side and widen the lens when backing away
+  // would strand the visitor behind the reading table/chair.
+  let found = reachable(d);
+  const nominal = Math.min(desired + frontGap, maxDistance);
+  for (let step = 1; !found && step <= Math.ceil(maxDistance / 0.05); step++) {
+    for (const value of [nominal + step * 0.05, nominal - step * 0.05]) {
+      if (value > maxDistance || value <= CAMERA_RADIUS + frontGap) continue;
+      if (reachable(value)) {
+        d = value;
+        found = true;
+        break;
+      }
+    }
+  }
+  if (!found)
     throw new Error(`Aucun cadrage libre pour ${artwork.id}.`);
   const fov =
-    desired + frontGap <= maxDistance
+    desired + frontGap <= d
       ? CAMERA_FOV
       : (2 *
           Math.atan(

@@ -1,11 +1,17 @@
-import { CubicBezierCurve3, Vector3 } from "three";
+import {
+  CubicBezierCurve3,
+  CurvePath,
+  LineCurve3,
+  Vector3,
+  type Curve,
+} from "three";
 import { ROOM_DEPTH, type Vec3 } from "./config";
 import {
   navigationObstaclesForRooms,
   segmentIsClear,
   type CameraMotionSample,
 } from "./navigation";
-import { overviewFov, type AmbientWalk } from "./tour";
+import { overviewFov, pausedWalkSample, type AmbientWalk } from "./tour";
 
 const wrap = (x: number) => ((x % 1) + 1) % 1;
 const angle = (a: number, b: number) =>
@@ -38,12 +44,31 @@ export function continuationRoom(sample: CameraMotionSample, rooms: string[]) {
   return rooms[clamp(current, 0, rooms.length - 1)];
 }
 
+/** Turning toward an open doorway can intentionally enter the next room,
+ * even though a drag has zeroed the previous walking velocity.
+ */
+export function manualContinuationRoom(
+  sample: CameraMotionSample,
+  rooms: string[],
+) {
+  const heading = [Math.sin(sample.yaw), 0, Math.cos(sample.yaw)] as Vec3;
+  const ahead = vector(sample.position)
+    .addScaledVector(vector(heading), 2)
+    .toArray() as Vec3;
+  if (
+    !segmentIsClear(sample.position, ahead, navigationObstaclesForRooms(rooms))
+  )
+    return continuationRoom(sample, rooms);
+  return continuationRoom({ ...sample, velocity: heading }, rooms);
+}
+
 interface Join {
-  curve: CubicBezierCurve3;
+  curve: Curve<Vector3>;
   length: number;
   loopDistance: number;
   initialHeading: number;
   direction: number;
+  departureLength?: number;
 }
 function loopPoint(walk: AmbientWalk, d: number) {
   return walk.curve.getPointAt(wrap(d / walk.length));
@@ -163,6 +188,136 @@ export function planPromenadeJoin(
   return best;
 }
 
+/** A mouse release is an intentional new direction, not a cancelled focus.
+ * Prefer that heading before path length, and keep a short straight departure
+ * where it is safe. A nearby wall can require a turn toward the nearest aisle;
+ * the planner never substitutes the shorter, opposite circulation merely to
+ * return to the old loop sooner.
+ */
+export function planManualPromenadeJoin(
+  walk: AmbientWalk,
+  from: CameraMotionSample,
+  rooms: string[],
+): Join {
+  const start = vector(from.position);
+  const forward = new Vector3(Math.sin(from.yaw), 0, Math.cos(from.yaw));
+  const obstacles = navigationObstaclesForRooms(rooms);
+  const clearForward = segmentIsClear(
+    from.position,
+    start.clone().addScaledVector(forward, 0.8).toArray() as Vec3,
+    obstacles,
+  );
+  const turns = clearForward
+    ? [0, 15, 30, 45, 60, 75, 90]
+    : [0, 15, 30, 45, 60, 75, 90, 120, 150, 180];
+  for (const degrees of turns) {
+    const headings =
+      degrees === 0 || degrees === 180 ? [degrees] : [-degrees, degrees];
+    let best: Join | undefined;
+    let bestScore = Infinity;
+    for (const degreesFromGaze of headings) {
+      const heading = (degreesFromGaze * Math.PI) / 180;
+      const direction = forward
+        .clone()
+        .applyAxisAngle(new Vector3(0, 1, 0), heading);
+      // Prefer a full metre in the chosen direction. Reduce it only when an
+      // obstacle or the current room's circulation makes that lead impossible.
+      for (const departureLength of [1.4, 1, 0.65, 0.35, 0]) {
+        const departure = start
+          .clone()
+          .addScaledVector(direction, departureLength);
+        if (
+          !segmentIsClear(from.position, departure.toArray() as Vec3, obstacles)
+        )
+          continue;
+        let foundAtThisLead = false;
+        for (const circulation of [1, -1]) {
+          for (let i = 0; i < 144; i++) {
+            const loopDistance = (walk.length * i) / 144;
+            const end = loopPoint(walk, loopDistance);
+            const gap = end.distanceTo(departure);
+            if (gap < 0.35 || gap > 14) continue;
+            const tangent = loopTangent(walk, loopDistance).multiplyScalar(
+              circulation,
+            );
+            for (const factor of [0.35, 0.65, 0.9]) {
+              const lead = clamp(gap * factor, 0.4, 4.5);
+              const bend = new CubicBezierCurve3(
+                departure,
+                departure.clone().addScaledVector(direction, lead),
+                end.clone().addScaledVector(tangent, -lead),
+                end,
+              );
+              let previous = departure;
+              let lastDirection = direction;
+              let length = departureLength;
+              let totalTurn = 0;
+              let valid = true;
+              for (let j = 1; j <= 80; j++) {
+                const point = bend.getPoint(j / 80);
+                const step = point.clone().sub(previous);
+                const span = step.length();
+                if (
+                  span < 0.00001 ||
+                  !segmentIsClear(
+                    previous.toArray() as Vec3,
+                    point.toArray() as Vec3,
+                    obstacles,
+                  )
+                ) {
+                  valid = false;
+                  break;
+                }
+                step.divideScalar(span);
+                const turn = Math.acos(clamp(lastDirection.dot(step), -1, 1));
+                // Reject tiny hooks. A broad return may be needed after the
+                // deliberate straight departure when the visitor faces away
+                // from the room loop; it must fit the actual free floor.
+                if (turn / span > 1.8) {
+                  valid = false;
+                  break;
+                }
+                length += span;
+                totalTurn += turn;
+                previous = point;
+                lastDirection = step;
+              }
+              const score = length + totalTurn * 2;
+              if (!valid || length > gap * 1.8 + departureLength + 0.6)
+                continue;
+              foundAtThisLead = true;
+              if (score >= bestScore) continue;
+              bend.arcLengthDivisions = 512;
+              const curve = new CurvePath<Vector3>();
+              if (departureLength > 0)
+                curve.add(new LineCurve3(start, departure));
+              curve.add(bend);
+              curve.arcLengthDivisions = 512;
+              best = {
+                curve,
+                length: curve.getLength(),
+                loopDistance,
+                initialHeading: Math.atan2(direction.x, direction.z),
+                direction: circulation,
+                departureLength,
+              };
+              bestScore = score;
+            }
+          }
+        }
+        if (foundAtThisLead) break;
+      }
+    }
+    if (best) return best;
+  }
+  throw new Error(`Aucune reprise manuelle libre dans ${walk.roomId}`);
+}
+
+export const MANUAL_LOOK_PAUSE = 0.25;
+export interface PromenadeOptions {
+  manualLook?: boolean;
+}
+
 /** One moving pose: route, speed and gaze advance together, including the merge. */
 export class ContinuousPromenade {
   readonly join: Join | null;
@@ -173,6 +328,9 @@ export class ContinuousPromenade {
   private speed: number;
   private loopStart: number;
   private viewport: { width: number; height: number } | null = null;
+  private manualLook: boolean;
+  private releasePitch: number;
+  private manualBlocked = false;
   private brake: {
     from: CameraMotionSample;
     duration: number;
@@ -183,6 +341,7 @@ export class ContinuousPromenade {
     from: CameraMotionSample,
     rooms: string[],
     loopStart?: number,
+    options: PromenadeOptions = {},
   ) {
     this.walk = walk;
     this.sample = {
@@ -191,46 +350,77 @@ export class ContinuousPromenade {
       velocity: [...from.velocity],
     };
     this.speed = Math.hypot(...from.velocity);
+    this.manualLook = options.manualLook === true;
+    this.releasePitch = from.pitch;
     let join: Join | null = null;
     if (loopStart === undefined) {
-      try {
-        if (this.speed > 0.6)
-          throw new Error("Slow before changing the walking path");
-        join = planPromenadeJoin(walk, from, rooms);
-      } catch {
-        // A short easing-out segment preserves momentum when an immediate bend
-        // would be too tight. It never moves back to the previous artwork.
-        const obstacles = navigationObstaclesForRooms(rooms);
-        let duration = 0.65;
-        let end = vector(from.position).addScaledVector(
-          vector(from.velocity),
-          duration / 2,
-        );
-        while (
-          duration > 0.025 &&
-          !segmentIsClear(from.position, end.toArray() as Vec3, obstacles)
-        ) {
-          duration *= 0.7;
-          end = vector(from.position).addScaledVector(
+      if (this.manualLook) {
+        // Mouse looking is stationary. If no route is safe, remain at this pose
+        // and let the visitor choose a destination; never use an unsafe jump.
+        try {
+          join = planManualPromenadeJoin(walk, from, rooms);
+        } catch {
+          this.manualBlocked = true;
+        }
+      } else {
+        try {
+          if (this.speed > 0.6)
+            throw new Error("Slow before changing the walking path");
+          join = planPromenadeJoin(walk, from, rooms);
+        } catch {
+          // A short easing-out segment preserves momentum when an immediate bend
+          // would be too tight. It never moves back to the previous artwork.
+          const obstacles = navigationObstaclesForRooms(rooms);
+          let duration = 0.65;
+          let end = vector(from.position).addScaledVector(
             vector(from.velocity),
             duration / 2,
           );
+          while (
+            duration > 0.025 &&
+            !segmentIsClear(from.position, end.toArray() as Vec3, obstacles)
+          ) {
+            duration *= 0.7;
+            end = vector(from.position).addScaledVector(
+              vector(from.velocity),
+              duration / 2,
+            );
+          }
+          const stopped: CameraMotionSample = {
+            ...from,
+            position: end.toArray() as Vec3,
+            velocity: [0, 0, 0],
+            yaw:
+              this.speed > 0.035
+                ? Math.atan2(from.velocity[0], from.velocity[2])
+                : from.yaw,
+          };
+          join = planPromenadeJoin(walk, stopped, rooms);
+          this.brake = { from, duration, elapsed: 0 };
         }
-        const stopped: CameraMotionSample = {
-          ...from,
-          position: end.toArray() as Vec3,
-          velocity: [0, 0, 0],
-          yaw:
-            this.speed > 0.035
-              ? Math.atan2(from.velocity[0], from.velocity[2])
-              : from.yaw,
-        };
-        join = planPromenadeJoin(walk, stopped, rooms);
-        this.brake = { from, duration, elapsed: 0 };
       }
     }
     this.join = join;
-    this.loopStart = this.join?.loopDistance ?? loopStart!;
+    this.loopStart = this.join?.loopDistance ?? loopStart ?? 0;
+  }
+  get phase() {
+    if (this.manualBlocked) return "blocked";
+    if (this.manualLook && this.elapsed < MANUAL_LOOK_PAUSE) return "resuming";
+    return "walking";
+  }
+  pause(rooms: string[]) {
+    const stopped = pausedWalkSample(this.sample);
+    if (this.brake) {
+      // Pausing midway through an inherited high-speed cancellation also
+      // stops that old momentum. Its future brake endpoint is no longer the
+      // actual pose, so compute a fresh safe continuation from the stop.
+      return new ContinuousPromenade(this.walk, stopped, rooms, undefined, {
+        manualLook: this.manualLook,
+      });
+    }
+    this.sample = stopped;
+    this.speed = 0;
+    return this;
   }
   private point(d: number) {
     if (this.join && d < this.join.length)
@@ -253,6 +443,7 @@ export class ContinuousPromenade {
     ).multiplyScalar(this.join?.direction ?? 1);
   }
   step(seconds: number, width: number, height: number) {
+    if (this.manualBlocked) return this.sample;
     let remaining = Math.min(Math.max(0, seconds), 0.1);
     if (
       this.viewport &&
@@ -266,6 +457,10 @@ export class ContinuousPromenade {
     while (remaining > 1e-7) {
       const dt = Math.min(1 / 120, remaining);
       remaining -= dt;
+      if (this.manualLook && this.elapsed < MANUAL_LOOK_PAUSE) {
+        this.elapsed += dt;
+        continue;
+      }
       const current = this.sample;
       const direction = this.brake
         ? vector(this.brake.from.velocity).normalize()
@@ -278,13 +473,31 @@ export class ContinuousPromenade {
       // Anticipate broad bends, but never look across the far side of a tight
       // merge: that can hold the walking alignment at zero indefinitely.
       const directionYaw = Math.atan2(direction.x, direction.z);
-      const desiredYaw =
+      const pathYaw =
         directionYaw +
         clamp(
           angle(directionYaw, Math.atan2(ahead.x, ahead.z)),
           -Math.PI / 6,
           Math.PI / 6,
         );
+      // Hold the chosen horizontal direction during the straight departure.
+      // Only the actual path bend then leads the gaze, with a short lookahead
+      // instead of looking across the room toward a distant point of the loop.
+      const manualAhead = this.point(this.distance + 0.7)
+        .sub(this.point(this.distance))
+        .normalize();
+      const departureBlend = this.join?.departureLength
+        ? clamp((this.distance / this.join.departureLength - 0.65) / 0.35, 0, 1)
+        : 1;
+      const manualYaw =
+        directionYaw +
+        clamp(
+          angle(directionYaw, Math.atan2(manualAhead.x, manualAhead.z)),
+          -Math.PI / 12,
+          Math.PI / 12,
+        ) *
+          departureBlend;
+      const desiredYaw = this.manualLook ? manualYaw : pathYaw;
       const yawError = angle(current.yaw, desiredYaw);
       const yawRate = clamp(yawError * 0.85, -YAW_SPEED, YAW_SPEED);
       // A cancelled focus can carry a much faster rotation. Ease that inherited
@@ -350,7 +563,16 @@ export class ContinuousPromenade {
         const acceleration = (target - value) * 4 - rate * 4;
         return rate + acceleration * dt;
       };
-      const pitchRate = smooth(current.pitch, 0.025, current.pitchVelocity);
+      const manualAge = Math.max(0, this.elapsed - MANUAL_LOOK_PAUSE);
+      const pitchTarget = this.manualLook
+        ? this.releasePitch +
+          (0.025 - this.releasePitch) * clamp((manualAge - 2.5) / 5, 0, 1)
+        : 0.025;
+      const pitchRate = smooth(
+        current.pitch,
+        pitchTarget,
+        current.pitchVelocity,
+      );
       // Closing a panel does not pan or zoom the lens in the opposite
       // direction. Any ongoing lens velocity simply eases out monotonically.
       const decay = Math.exp(-8 * dt);

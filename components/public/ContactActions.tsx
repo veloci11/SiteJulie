@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { ArrowUpRight, Copy, Check, Mail, Instagram } from "lucide-react";
 import type { Artwork, SiteSettings } from "@/lib/data/types";
 import { contactHref } from "@/lib/public";
+import ContactForm from "./ContactForm";
 // Only publish a web origin, never credentials, query strings or a configured path.
 export function contactOrigin(value: string | undefined) {
   try {
@@ -19,9 +20,11 @@ export function contactOrigin(value: string | undefined) {
 export default function ContactActions({
   settings,
   artwork,
+  canSend = false,
 }: {
   settings: SiteSettings;
   artwork?: Artwork;
+  canSend?: boolean;
 }) {
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState("");
@@ -49,8 +52,14 @@ export default function ContactActions({
       )}
       {href ? (
         <>
-          <a className="button button-dark" href={href}>
-            <Mail size={17} /> Écrire un message <ArrowUpRight size={17} />
+          <ContactForm
+            key={artwork?.id || "general"}
+            artwork={artwork}
+            enabled={canSend}
+          />
+          <a className="text-link contact-mailto" href={href}>
+            <Mail size={17} /> Écrire avec votre messagerie{" "}
+            <ArrowUpRight size={17} />
           </a>
           <div className="email-line">
             <a href={`mailto:${settings.email}`}>{settings.email}</a>
@@ -88,10 +97,7 @@ export default function ContactActions({
         <div className="contact-unconfigured">
           <Mail size={22} />
           <p>L’adresse de contact sera bientôt renseignée.</p>
-          <small>
-            Elle se configure dans l’administration de cette version de
-            démonstration.
-          </small>
+          <small>Merci de revenir un peu plus tard.</small>
         </div>
       )}
       {settings.instagramUrl && (
@@ -101,7 +107,7 @@ export default function ContactActions({
           target="_blank"
           rel="noopener noreferrer"
         >
-          <Instagram size={17} /> Retrouvez Julie sur Instagram{" "}
+          <Instagram size={17} /> Retrouvez {settings.artistName} sur Instagram{" "}
           <ArrowUpRight size={15} />
         </a>
       )}
