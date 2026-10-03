@@ -7,6 +7,7 @@ import "@fontsource/dm-sans/500.css";
 import "./globals.css";
 import "./museum.css";
 import { publicIndexingEnabled, siteOrigin } from "@/lib/seo";
+import { PublicAnalytics } from "@/components/public/PublicAnalytics";
 export const metadata: Metadata = {
   verification: { google: process.env.GOOGLE_SITE_VERIFICATION },
   metadataBase: siteOrigin() ? new URL(siteOrigin()!) : undefined,
@@ -28,7 +29,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="fr">
-      <body>{children}</body>
+      <body>
+        {children}
+        <PublicAnalytics />
+      </body>
     </html>
   );
 }

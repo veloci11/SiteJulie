@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const fake = vi.hoisted(() => ({
   body: null as string | null,
@@ -42,17 +42,70 @@ vi.mock("@vercel/blob", () => {
   };
 });
 
-import { mutateBlob, readBlob } from "@/lib/data/blob";
+import {
+  mutateBlob,
+  readBlob,
+  readBlobForPublic,
+  invalidateBlobReadCache,
+} from "@/lib/data/blob";
+import { get } from "@vercel/blob";
+import fixture from "./fixtures/catalog.json";
 import { randomUUID } from "node:crypto";
 
 beforeEach(() => {
+  invalidateBlobReadCache();
+  vi.clearAllMocks();
   fake.body = null;
   fake.etag = 0;
   fake.weak = false;
   fake.changeBeforeHead = false;
 });
+afterEach(() => vi.useRealTimers());
 
 describe("Vercel Blob catalogue", () => {
+  it("reduces a burst of 26 public image/page reads to one origin read and isolates callers", async () => {
+    fake.body = JSON.stringify(fixture);
+    const snapshots = await Promise.all(
+      Array.from({ length: 26 }, () => readBlobForPublic()),
+    );
+    expect(get).toHaveBeenCalledTimes(1);
+    snapshots[0].store.settings.heroTitle = "Caller mutation";
+    expect((await readBlobForPublic()).store.settings.heroTitle).not.toBe(
+      "Caller mutation",
+    );
+    expect(get).toHaveBeenCalledTimes(1);
+    await readBlob();
+    expect(get).toHaveBeenCalledTimes(2);
+  });
+  it("refreshes an externally unpublished work at the strict expiry and fails closed on an outage", async () => {
+    vi.useFakeTimers();
+    fake.body = JSON.stringify(fixture);
+    const first = await readBlobForPublic();
+    const unpublished = structuredClone(fixture);
+    unpublished.artworks[0].publication = "draft";
+    fake.body = JSON.stringify(unpublished);
+    vi.advanceTimersByTime(29_999);
+    const retained = await readBlobForPublic();
+    expect(retained.store.artworks[0].publication).toBe("published");
+    expect(retained.publicationValidUntil).toBe(first.publicationValidUntil);
+    vi.advanceTimersByTime(1);
+    expect((await readBlobForPublic()).store.artworks[0].publication).toBe(
+      "draft",
+    );
+    fake.body = "malformed";
+    vi.advanceTimersByTime(30_000);
+    await expect(readBlobForPublic()).rejects.toMatchObject({ status: 503 });
+  });
+  it("invalidates public reads after an authenticated catalogue write", async () => {
+    fake.body = JSON.stringify(fixture);
+    await readBlobForPublic();
+    await mutateBlob((store) => {
+      store.settings.heroTitle = "Immediately saved";
+    });
+    expect((await readBlobForPublic()).store.settings.heroTitle).toBe(
+      "Immediately saved",
+    );
+  });
   it("retains private room drafts across unrelated catalogue mutations", async () => {
     const draft = {
       version: randomUUID(),

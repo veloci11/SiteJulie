@@ -5,6 +5,7 @@ const state = vi.hoisted(() => ({
   admin: false,
   blob: true,
   reads: [] as Array<{ path: string; options: Record<string, any> }>,
+  publicationValidUntil: undefined as number | undefined,
 }));
 vi.mock("@/lib/auth/server", async () => {
   const { ServiceError } = await import("@/lib/validation/artwork");
@@ -29,6 +30,10 @@ vi.mock("@/lib/auth/server", async () => {
 });
 vi.mock("@/lib/data/blob", () => ({
   readBlob: async () => state.store,
+  readBlobForPublic: async () => ({
+    store: state.store,
+    publicationValidUntil: state.publicationValidUntil,
+  }),
   mutateBlob: vi.fn(),
 }));
 vi.mock("@vercel/blob", () => ({
@@ -70,6 +75,7 @@ beforeEach(() => {
   state.admin = false;
   state.blob = true;
   state.reads = [];
+  state.publicationValidUntil = undefined;
 });
 afterEach(() => {
   vi.restoreAllMocks();
@@ -99,6 +105,20 @@ it("revalidates unchanged images without reading the image body again", async ()
   expect(response.status).toBe(304);
   expect(await response.text()).toBe("");
   expect(state.reads[0].options.ifNoneMatch).toBe('"current"');
+});
+it("never extends the publication snapshot's 60-second deadline in the browser", async () => {
+  state.publicationValidUntil = Date.now() + 29_000;
+  const response = await read('"current"');
+  expect(response.status).toBe(304);
+  const maxAge = Number(
+    response.headers.get("Cache-Control")?.match(/max-age=(\d+)/)?.[1],
+  );
+  expect(maxAge).toBeGreaterThanOrEqual(28);
+  expect(maxAge).toBeLessThanOrEqual(29);
+  state.publicationValidUntil = Date.now() - 1;
+  expect((await read()).headers.get("Cache-Control")).toBe(
+    "private, max-age=0, must-revalidate",
+  );
 });
 it("checks current publication before accepting any old ETag", async () => {
   state.store.artworks[0].publication = "draft";

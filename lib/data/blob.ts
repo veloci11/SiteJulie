@@ -1,6 +1,7 @@
 import "server-only";
 import { BlobPreconditionFailedError, get, head, put } from "@vercel/blob";
 import type { LocalStore, UploadRecord } from "./local";
+import { createReadCache } from "@/lib/storage/read-cache";
 import { roomLayoutDraftsSchema } from "@/lib/admin/room-layout";
 import {
   artworkSchema,
@@ -10,6 +11,17 @@ import {
 } from "@/lib/validation/artwork";
 
 const CATALOG_PATH = "museum/catalog.json";
+const PUBLIC_READ_TTL_MS = 30_000;
+const state = globalThis as typeof globalThis & {
+  museumCatalogReadCache?: ReturnType<typeof createReadCache<LocalStore>>;
+};
+function publicReadCache() {
+  return (state.museumCatalogReadCache ??=
+    createReadCache<LocalStore>(PUBLIC_READ_TTL_MS));
+}
+export function invalidateBlobReadCache() {
+  publicReadCache().invalidate();
+}
 
 function emptyStore(): LocalStore {
   return { artworks: [], settings: blankSettings, rooms: ["room-1"] };
@@ -99,6 +111,19 @@ export async function readBlob(): Promise<LocalStore> {
   return (await readWithEtag()).store;
 }
 
+/** Server-only snapshot for public reads. Admin/CAS writes always read origin. */
+export async function readBlobForPublic() {
+  const snapshot = await publicReadCache().read(
+    process.env.BLOB_READ_WRITE_TOKEN || "",
+    readBlob,
+  );
+  return {
+    store: structuredClone(snapshot.value),
+    // Server and browser retention together must stay within 60 seconds.
+    publicationValidUntil: snapshot.expiresAt + PUBLIC_READ_TTL_MS,
+  };
+}
+
 const queueState = globalThis as typeof globalThis & {
   museumBlobWriteQueue?: Promise<unknown>;
 };
@@ -122,6 +147,7 @@ export function mutateBlob<T>(
               ? { allowOverwrite: true, ifMatch: etag }
               : { allowOverwrite: false }),
           });
+          invalidateBlobReadCache();
           return result;
         } catch (error) {
           if (error instanceof BlobPreconditionFailedError || !etag) continue;

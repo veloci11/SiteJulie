@@ -27,7 +27,8 @@ async function read(data: PublicData, name: string, local = localRoot()) {
   }
   if (data.mode !== "blob") return null;
   try {
-    const result = await get(pathname, { access: "private", useCache: false });
+    // Fingerprinted previews contain only this public hanging; reuse Blob's CDN.
+    const result = await get(pathname, { access: "private", useCache: true });
     return result?.statusCode === 200 && result.stream
       ? Buffer.from(await new Response(result.stream).arrayBuffer())
       : null;

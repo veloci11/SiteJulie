@@ -32,6 +32,16 @@ Pour restaurer, vérifier le manifeste et les empreintes, effectuer d’abord un
 
 Premier instantané et export vérifiés le 2 octobre 2026 : 102 fichiers et catalogue, environ 60,7 Mo de copies. L’export local est `.local/backups/2026-10-02-verified/`, exclu de Git et des déploiements.
 
+## Réduction des opérations Blob et statistiques
+
+Les lectures publiques du catalogue partagent une lecture d’origine par instance active sur 30 secondes ; les requêtes simultanées attendent le même résultat. Le cache est strictement serveur, séparé par store, cloné pour chaque appel et invalidé après une écriture dans la même instance. Les lectures admin, les écritures conditionnelles et l’anti-spam restent fraîches. Sur une autre instance, une dépublication devient visible au plus tard à l’expiration de ce cache. Le cache des images dans le navigateur utilise uniquement le temps restant dans la fenêtre totale de 60 secondes depuis la lecture d’origine, sans délai supplémentaire cumulatif. Une panne à l’expiration refuse les données au lieu de prolonger un ancien instantané.
+
+Les aperçus par empreinte réutilisent le CDN Blob. La sauvegarde quotidienne compare les ETags et tailles fournis par `list()` : les images déjà copiées n’exigent plus deux `head()` chacune par jour. Les nouvelles copies restent vérifiées. Avec 102 fichiers inchangés, cela évite environ 204 opérations simples par sauvegarde ; les lectures du catalogue et du manifeste et les nouvelles images continuent de compter. Le gain réel dépend du trafic et de la réutilisation des instances ; aucun quota gratuit illimité n’est promis.
+
+Vercel Web Analytics (`@vercel/analytics`) mesure les pages publiques sans cookie publicitaire. Le composant exclut `/admin` et `/api`, et retire paramètres et fragments des URLs avant l’envoi. Il ne reçoit aucun contenu du formulaire et n’enregistre aucun événement personnalisé. L’offre Hobby inclut actuellement 50 000 événements par mois, quota distinct de Blob. L’activation se vérifie dans le tableau Vercel et nécessite le déploiement du SDK.
+
+Les chiffres du tableau Usage sont affichés sur les 30 derniers jours. Une plage de dates d’analyse n’est pas une date garantie de remise à zéro. Vercel indique une attente possible de 30 jours en cas de dépassement Hobby ; ne pas promettre un reset le premier du mois ou une date non affichée par le compte.
+
 ## Anti-spam partagé
 
 Les demandes valides consomment atomiquement un compteur dans `museum-system/contact-limits.json`, privé et distinct du catalogue. Une écriture conditionnelle sur ETag arbitre entre instances Vercel ; une collision entraîne une nouvelle lecture, jamais le remplacement silencieux d’un compteur concurrent.

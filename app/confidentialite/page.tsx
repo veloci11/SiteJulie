@@ -109,10 +109,16 @@ export default function Confidentialite() {
       <section>
         <h2>Cookies et stockage dans votre navigateur</h2>
         <p>
-          La galerie n’intègre actuellement ni outil publicitaire ni outil de
-          mesure d’audience. Les polices sont servies par le site. Un stockage
-          local technique permet de signaler une mise à jour du catalogue entre
-          les onglets ; il ne contient pas les informations du formulaire.
+          Vercel Web Analytics mesure la fréquentation des pages publiques :
+          pages consultées, provenance, pays et type d’appareil. Ces
+          statistiques sont agrégées et n’utilisent pas de cookie publicitaire.
+          Vercel utilise un identifiant calculé à partir de la requête, supprimé
+          après 24 heures. Les pages d’administration, les paramètres des liens
+          et le contenu du formulaire sont exclus de cette mesure. Les rapports
+          de l’offre gratuite portent sur un mois. Les polices sont servies par
+          le site. Un stockage local technique permet de signaler une mise à
+          jour du catalogue entre les onglets ; il ne contient pas les
+          informations du formulaire.
         </p>
         <p>
           L’espace d’administration utilise un cookie de session sécurisé,

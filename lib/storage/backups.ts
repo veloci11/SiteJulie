@@ -107,14 +107,17 @@ export async function createMuseumBackup(now = new Date()) {
   const checksums = new Map(
     previous?.assets.map((asset) => [asset.backup, asset.sha256]) || [],
   );
-  const storedPaths = new Set(stored.map((file) => file.pathname));
+  const storedFiles = new Map(stored.map((file) => [file.pathname, file]));
   const assets: BackupManifest["assets"] = [];
   for (const file of sources) {
     if (file.pathname === "museum/catalog.json") continue;
-    const metadata = await head(file.pathname);
     const backup =
-      BACKUP_PREFIX + "objects/" + sha256(file.pathname + "\n" + metadata.etag);
-    if (!storedPaths.has(backup)) {
+      BACKUP_PREFIX + "objects/" + sha256(file.pathname + "\n" + file.etag);
+    let copied = storedFiles.get(backup);
+    if (!copied) {
+      const metadata = await head(file.pathname);
+      if (metadata.etag !== file.etag || metadata.size !== file.size)
+        throw new Error("Backup source changed after listing");
       try {
         await copy(file.pathname, backup, {
           access: "private",
@@ -133,17 +136,18 @@ export async function createMuseumBackup(now = new Date()) {
         )
           throw error;
       }
+      copied = await head(backup);
     }
-    const copied = await head(backup);
-    if (copied.size !== metadata.size || copied.etag !== metadata.etag)
+    // list() already returns strong ETags and sizes. Unchanged copies need no HEAD.
+    if (copied.size !== file.size || copied.etag !== file.etag)
       throw new Error("Backup asset changed during copy");
     const checksum =
       checksums.get(backup) || sha256(await readPrivateBytes(backup));
     assets.push({
       source: file.pathname,
       backup,
-      size: metadata.size,
-      etag: metadata.etag,
+      size: file.size,
+      etag: file.etag,
       sha256: checksum,
     });
   }

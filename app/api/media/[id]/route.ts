@@ -27,12 +27,22 @@ export async function GET(
           "Referrer-Policy": "no-referrer",
         },
       });
+    const maxAge =
+      result.publicationValidUntil === undefined
+        ? 60
+        : Math.max(
+            0,
+            Math.min(
+              60,
+              Math.floor((result.publicationValidUntil - Date.now()) / 1000),
+            ),
+          );
     const headers = {
       "Content-Type": "image/webp",
-      // Same 60-second revocation window as the existing signed image URLs.
+      // Include the server snapshot's age in the existing 60-second revocation window.
       // Draft/admin images are never retained by the browser.
       "Cache-Control": result.published
-        ? "private, max-age=60, must-revalidate"
+        ? `private, max-age=${maxAge}, must-revalidate`
         : "private, no-store",
       "X-Content-Type-Options": "nosniff",
       ...(result.etag ? { ETag: result.etag } : {}),

@@ -15,7 +15,7 @@ import {
   supabaseSession,
 } from "@/lib/auth/server";
 import { localRoot, mutateLocal, readLocal } from "@/lib/data/local";
-import { mutateBlob, readBlob } from "@/lib/data/blob";
+import { mutateBlob, readBlob, readBlobForPublic } from "@/lib/data/blob";
 import { resolvePlacement, ServiceError } from "@/lib/validation/artwork";
 export const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
 export const variants = { thumb: 320, room: 1536, detail: 2560 } as const;
@@ -408,6 +408,7 @@ export async function getMedia(
   etag?: string;
   published?: boolean;
   notModified?: boolean;
+  publicationValidUntil?: number;
 }> {
   if (!/^[a-zA-Z0-9-]{1,80}$/.test(id))
     throw new ServiceError("Image introuvable.", 404);
@@ -434,10 +435,17 @@ export async function getMedia(
     }
   }
   if (isBlob()) {
-    const store = await readBlob();
+    let { store, publicationValidUntil } = direct
+      ? await readBlobForPublic()
+      : { store: await readBlob(), publicationValidUntil: undefined };
+    // A private admin preview must see current revisions and never share a cache.
+    if (store.artworks.find((a) => a.id === id)?.publication !== "published") {
+      await requireAdmin();
+      if (direct) store = await readBlob();
+      publicationValidUntil = undefined;
+    }
     const artwork = store.artworks.find((candidate) => candidate.id === id);
     if (!artwork) throw new ServiceError("Image introuvable.", 404);
-    if (artwork.publication !== "published") await requireAdmin();
     const upload = store.uploads?.find(
       (candidate) =>
         candidate.id === artwork.mediaId && candidate.status === "ready",
@@ -458,6 +466,7 @@ export async function getMedia(
           notModified: true,
           etag: object.blob.etag,
           published: artwork.publication === "published",
+          publicationValidUntil,
         };
       if (!object || object.statusCode !== 200 || !object.stream)
         throw new ServiceError("Image introuvable.", 404);
@@ -465,6 +474,7 @@ export async function getMedia(
         stream: object.stream,
         etag: object.blob.etag,
         published: artwork.publication === "published",
+        publicationValidUntil,
       };
     }
     return { url: await createPrivateUrl(pathname, "get") };

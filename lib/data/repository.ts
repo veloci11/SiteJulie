@@ -19,7 +19,7 @@ import {
   assertLocalHost,
 } from "@/lib/auth/server";
 import { mutateLocal, readLocal } from "./local";
-import { mutateBlob, readBlob } from "./blob";
+import { mutateBlob, readBlob, readBlobForPublic } from "./blob";
 import { getSlots } from "@/lib/museum/config";
 import {
   artworkSchema,
@@ -46,7 +46,7 @@ export const getPublicData = cache(async (): Promise<PublicData> => {
   }
   if (isBlob()) {
     await headers();
-    const data = await readBlob();
+    const { store: data } = await readBlobForPublic();
     const settings = effectiveContactSettings(data.settings);
     return {
       mode: "blob",

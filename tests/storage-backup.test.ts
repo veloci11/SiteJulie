@@ -80,6 +80,21 @@ describe("private museum snapshots and storage", () => {
     expect(await latestBackup()).toBeNull();
     expect(blobFixture.files.get("museum/catalog.json")!.body).toBe(catalog);
   });
+  it("checks unchanged backup versions from the listing without per-image HEAD reads", async () => {
+    await createMuseumBackup(new Date("2026-10-02T03:00:00Z"));
+    const head = vi.spyOn(await import("@vercel/blob"), "head");
+    const next = await createMuseumBackup(new Date("2026-10-03T03:00:00Z"));
+    expect(next.manifest.assets).toHaveLength(2);
+    expect(head).not.toHaveBeenCalled();
+    head.mockRestore();
+  });
+  it("rejects a changed stored copy instead of trusting a previous checksum", async () => {
+    const first = await createMuseumBackup(new Date("2026-10-02T03:00:00Z"));
+    seedBlob(first.manifest.assets[0].backup, "corrupt-backup");
+    await expect(
+      createMuseumBackup(new Date("2026-10-03T03:00:00Z")),
+    ).rejects.toThrow("Backup asset changed");
+  });
   it("includes actual backup bytes and never invents a capacity", async () => {
     await createMuseumBackup();
     const usage = await storageUsage();

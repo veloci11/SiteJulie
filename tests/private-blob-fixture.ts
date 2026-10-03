@@ -86,6 +86,7 @@ export function blobMock(real: typeof import("@vercel/blob")) {
           pathname,
           size: Buffer.byteLength(item.body),
           uploadedAt: item.uploadedAt,
+          etag: item.etag,
         })),
     }),
   };
