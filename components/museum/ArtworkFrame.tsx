@@ -96,7 +96,8 @@ export function ArtworkFrame({
       try {
         const response = await fetch(artwork.detailImage, {
           signal: abort.signal,
-          cache: "force-cache",
+          // Reuse a fresh image, but let expiry recheck its public permission.
+          cache: "default",
         });
         if (!response.ok) throw new Error("Détail indisponible");
         const blob = await response.blob();

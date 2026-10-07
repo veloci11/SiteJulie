@@ -65,6 +65,37 @@ class SceneBoundary extends Component<
   }
 }
 type Drawer = "artworks" | "rooms" | "menu" | null;
+export function visitMotionState({
+  destination,
+  drawer,
+  revealed,
+  roomAutoplay,
+  reducedMotion,
+  traveling,
+}: {
+  destination: Destination;
+  drawer: Drawer;
+  revealed: boolean;
+  roomAutoplay: boolean;
+  reducedMotion: boolean;
+  traveling: boolean;
+}) {
+  const editorial =
+    destination.kind === "about" || destination.kind === "contact";
+  return {
+    allowManualLook: !editorial && !drawer,
+    // Browsing the works list preserves the existing promenade and its clock.
+    // Selecting an actual work still stops it to hold the artwork in focus.
+    ambientTour:
+      revealed &&
+      (destination.kind === "home" ||
+        editorial ||
+        (destination.kind === "room" && roomAutoplay)) &&
+      (drawer === null || drawer === "artworks") &&
+      !reducedMotion &&
+      (!traveling || roomAutoplay),
+  };
+}
 function physicalDestination(
   destination: Destination,
   data: PublicData,
@@ -208,9 +239,18 @@ export default function MuseumShell({
     !!activeArtwork &&
     !traveling &&
     detailsOpen &&
-    !lookingAround;
+    !lookingAround &&
+    !drawer;
   const showEditorial =
     destination.kind === "about" || destination.kind === "contact";
+  const motionState = visitMotionState({
+    destination,
+    drawer,
+    revealed,
+    roomAutoplay,
+    reducedMotion,
+    traveling,
+  });
   const showHome =
     !failed &&
     !traveling &&
@@ -706,7 +746,7 @@ export default function MuseumShell({
                 onReady={onReady}
                 onTourArtwork={setTourArtworkId}
                 onLookStateChange={setLookState}
-                allowManualLook={!showEditorial && !drawer}
+                allowManualLook={motionState.allowManualLook}
                 onLookResume={(roomId) => {
                   if (showEditorial || drawer) return;
                   setHasLookedAround(true);
@@ -718,15 +758,7 @@ export default function MuseumShell({
                 resumeFromCurrent={resumeFromCurrent}
                 selectedArtworkId={activeArtwork?.id ?? null}
                 onPointerMissed={closeArtwork}
-                ambientTour={
-                  revealed &&
-                  (destination.kind === "home" ||
-                    showEditorial ||
-                    (destination.kind === "room" && roomAutoplay)) &&
-                  !drawer &&
-                  !reducedMotion &&
-                  (!traveling || roomAutoplay)
-                }
+                ambientTour={motionState.ambientTour}
               />
             </SceneBoundary>
           )}
@@ -769,6 +801,7 @@ export default function MuseumShell({
         {showHome && (
           <div
             className={`visit-hero ${destination.kind === "home" ? "is-introduction" : "is-room-label"}`}
+            inert={!!drawer}
           >
             <p className="eyebrow">
               {roomCollections.length ? (
@@ -814,6 +847,7 @@ export default function MuseumShell({
         {ready && !failed && activeArtwork && (
           <button
             className="visit-back"
+            inert={!!drawer}
             onClick={closeArtwork}
             aria-label="Reprendre la visite"
           >

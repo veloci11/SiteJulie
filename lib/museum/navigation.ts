@@ -105,7 +105,15 @@ export function artworkPose(
   const contentWidth = Math.max(size.width + FRAME_OUTSET, CARTEL_WIDTH);
   const contentHeight = topExtent + bottomExtent;
   const centerY = (topExtent - bottomExtent) / 2;
-  const inset = framing ?? { ...artworkInsets(width, height), left: 0 };
+  const requestedInsets = framing ?? {
+    ...artworkInsets(width, height),
+    left: 0,
+  };
+  // Keep the painting on the horizontal centre of the whole viewport. Mirror
+  // the details card's reservation so the frame still clears the text without
+  // shifting the visitor's view toward the opposite side.
+  const side = Math.max(requestedInsets.left, requestedInsets.right);
+  const inset = { ...requestedInsets, left: side, right: side };
   const target = slot.position.map(
     (v, i) =>
       v + slot.wallNormal[i] * ARTWORK_IMAGE_DEPTH + (i === 1 ? centerY : 0),
@@ -151,11 +159,7 @@ export function artworkPose(
     if (!segmentIsClear(positionAt(value), positionAt(value), obstacles))
       return false;
     try {
-      safeRoute(
-        circulation,
-        positionAt(value),
-        [artwork.roomId],
-      );
+      safeRoute(circulation, positionAt(value), [artwork.roomId]);
       return true;
     } catch {
       return false;
@@ -176,8 +180,7 @@ export function artworkPose(
       }
     }
   }
-  if (!found)
-    throw new Error(`Aucun cadrage libre pour ${artwork.id}.`);
+  if (!found) throw new Error(`Aucun cadrage libre pour ${artwork.id}.`);
   const fov =
     desired + frontGap <= d
       ? CAMERA_FOV
@@ -543,8 +546,7 @@ export function routeLength(path: Vec3[]) {
 export function validatePlacements(data: PublicData) {
   const ids = new Set<string>();
   for (const a of data.artworks) {
-    if (ids.has(a.id))
-      throw new Error(`Œuvre présente deux fois : ${a.id}`);
+    if (ids.has(a.id)) throw new Error(`Œuvre présente deux fois : ${a.id}`);
     ids.add(a.id);
     if (!getSlots(a.roomId).some((s) => s.id === a.slotId))
       throw new Error(`Emplacement absent : ${a.slotId}`);

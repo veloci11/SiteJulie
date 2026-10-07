@@ -29,9 +29,19 @@ export default function MuseumEntry({
         setShell(null);
         router.replace(classicUrl(currentDestination, props.data.artworks));
       } else {
-        void import("./MuseumShell").then((module) => {
-          if (active && !phone.matches) setShell(() => module.default);
+        const shell = import("./MuseumShell");
+        // Fetch the renderer alongside the shell instead of waiting for its
+        // first render. The phone branch never requests either 3D module.
+        void import("./MuseumCanvas").catch(() => {
+          // Optional preload: the canvas boundary handles a later render error.
         });
+        void shell
+          .then((module) => {
+            if (active && !phone.matches) setShell(() => module.default);
+          })
+          .catch(() => {
+            // The server-rendered catalogue remains usable if a chunk fails.
+          });
       }
     };
     chooseView();
