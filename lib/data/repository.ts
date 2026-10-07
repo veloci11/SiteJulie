@@ -190,26 +190,86 @@ export async function saveArtwork(raw: unknown) {
   if (error) throw new ServiceError(error.message, 409);
   return saved as AdminArtwork;
 }
+function settingsSnapshot(settings: SiteSettings) {
+  const current = settingsSchema.parse(effectiveContactSettings(settings));
+  const sorted = (value: Record<string, string> = {}) =>
+    Object.fromEntries(
+      Object.entries(value).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)),
+    );
+  return JSON.stringify({
+    ...current,
+    instagramUrl: current.instagramUrl ?? "",
+    coursesText: current.coursesText ?? "",
+    collectionRooms: sorted(current.collectionRooms),
+    collectionDescriptions: sorted(current.collectionDescriptions),
+  });
+}
+function assertSettingsUnchanged(
+  current: SiteSettings,
+  expected: SiteSettings | undefined,
+) {
+  if (expected && settingsSnapshot(current) !== settingsSnapshot(expected))
+    throw new ServiceError(
+      "Les textes ou le contact ont été modifiés depuis leur ouverture. Vos saisies sont conservées ; rechargez les réglages enregistrés avant de réessayer.",
+      409,
+    );
+}
 export async function saveSettings(raw: unknown) {
   await requireAdmin();
   const parsed = settingsSchema.safeParse(raw);
   if (!parsed.success)
     throw new ServiceError("Vérifiez les textes et l’adresse email.");
+  let expectedSettings: SiteSettings | undefined;
+  if (raw && typeof raw === "object" && "expectedSettings" in raw) {
+    const expected = settingsSchema.safeParse(raw.expectedSettings);
+    if (!expected.success)
+      throw new ServiceError("Les réglages de départ sont invalides.");
+    expectedSettings = expected.data;
+  }
   if (isDemo() || isBlob()) {
     const mutate = isDemo() ? mutateLocal : mutateBlob;
-    return mutate(
-      (data) =>
-        (data.settings = {
-          ...parsed.data,
-          collectionRooms: data.settings.collectionRooms,
-          collectionDescriptions: {
-            ...data.settings.collectionDescriptions,
-            ...parsed.data.collectionDescriptions,
-          },
-        }),
-    );
+    const saved = await mutate((data) => {
+      assertSettingsUnchanged(data.settings, expectedSettings);
+      data.settings = {
+        ...parsed.data,
+        collectionRooms: data.settings.collectionRooms,
+        collectionDescriptions: {
+          ...data.settings.collectionDescriptions,
+          ...parsed.data.collectionDescriptions,
+        },
+      };
+      return data.settings;
+    });
+    return isBlob() ? effectiveContactSettings(saved) : saved;
   }
   const client = await supabaseSession();
+  if (expectedSettings) {
+    const { data: current, error: readError } = await client
+      .from("site_settings")
+      .select("payload")
+      .eq("id", 1)
+      .single();
+    if (readError || !current)
+      throw new ServiceError(
+        "Impossible de lire les réglages enregistrés.",
+        503,
+      );
+    assertSettingsUnchanged(current.payload as SiteSettings, expectedSettings);
+    const { data: saved, error } = await client
+      .from("site_settings")
+      .update({ payload: parsed.data })
+      .eq("id", 1)
+      .eq("payload", JSON.stringify(current.payload))
+      .select("payload")
+      .maybeSingle();
+    if (error) throw new ServiceError("Enregistrement impossible.", 503);
+    if (!saved)
+      throw new ServiceError(
+        "Les textes ou le contact ont été modifiés depuis leur ouverture. Vos saisies sont conservées ; rechargez les réglages enregistrés avant de réessayer.",
+        409,
+      );
+    return saved.payload as SiteSettings;
+  }
   const { error } = await client
     .from("site_settings")
     .update({ payload: parsed.data })

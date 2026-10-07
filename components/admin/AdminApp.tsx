@@ -35,6 +35,11 @@ import RoomOverview from "./RoomOverview";
 import RoomLayoutEditor from "./RoomLayoutEditor";
 import StoragePanel from "./StoragePanel";
 import type { RoomLayoutDraft } from "@/lib/admin/room-layout";
+import {
+  roomCapacity as calculateRoomCapacity,
+  roomAcceptsArtwork,
+  type RoomCapacity,
+} from "@/lib/admin/room-capacity";
 import "./admin.css";
 type Data = {
   artworks: AdminArtwork[];
@@ -238,20 +243,11 @@ export default function AdminApp({
   const groups = data
     ? groupCollections(data.artworks, data.rooms, data.settings.collectionRooms)
     : [];
-  const roomCapacity = (room: string) => {
-    const slots = getZones(room, data?.rooms);
-    const occupied = new Set(
-      data?.artworks
-        .filter((a) => a.publication === "published")
-        .map((a) => a.slotId),
-    );
-    return {
-      total: slots.length,
-      free: slots.filter((slot) => !occupied.has(slot.id)).length,
-    };
-  };
+  const roomCapacity = (room: string) =>
+    calculateRoomCapacity(room, data?.artworks ?? [], data?.rooms ?? []);
   const suggestedGroup =
-    groups.find((group) => roomCapacity(group.roomId).free > 0) ?? groups[0];
+    groups.find((group) => roomCapacity(group.roomId).freeSurfaceM2 > 0) ??
+    groups[0];
   function newArtwork(
     collection = suggestedGroup?.name ?? "",
     roomId = suggestedGroup?.roomId ?? "room-1",
@@ -686,10 +682,10 @@ export default function AdminApp({
             validateForm={validateForm}
             onSave={(settings) =>
               perform(async () => {
-                const saved = await api<SiteSettings>(
-                  "/api/admin/settings",
-                  settings,
-                );
+                const saved = await api<SiteSettings>("/api/admin/settings", {
+                  ...settings,
+                  expectedSettings: data.settings,
+                });
                 setData((previous) =>
                   previous ? { ...previous, settings: saved } : previous,
                 );
@@ -1130,10 +1126,17 @@ export default function AdminApp({
                         Le choix prend effet lorsque vous enregistrez. Une œuvre
                         vendue peut rester publiée.
                       </p>
-                      {roomCapacity(editing.roomId).free === 0 &&
-                        baseline?.publication !== "published" && (
+                      {baseline?.publication !== "published" &&
+                        roomAcceptsArtwork(
+                          editing,
+                          data.artworks,
+                          data.rooms,
+                        ) === false && (
                           <div className="admin-placement-warning">
-                            <strong>Cette salle est complète.</strong>
+                            <strong>
+                              Aucun emplacement ne convient à ce tableau dans
+                              cette salle.
+                            </strong>
                             <p>
                               Enregistrez votre brouillon, libérez une place en
                               retirant une œuvre exposée, ou choisissez une
@@ -1259,7 +1262,11 @@ export default function AdminApp({
                 return (
                   <div className="admin-room-entry" key={room}>
                     <strong>Salle {room.replace("room-", "")}</strong> ·{" "}
-                    {capacity.total} zones · plusieurs tableaux par zone
+                    {capacity.total} zones ·{" "}
+                    {capacity.freeSurfaceM2.toLocaleString("fr-CH", {
+                      maximumFractionDigits: 1,
+                    })}{" "}
+                    m² hors cadres · plusieurs tableaux par zone
                     {(demo || singleAdmin) && (
                       <button
                         type="button"
@@ -1668,7 +1675,7 @@ function CollectionCreator({
 }: {
   rooms: string[];
   collections: { name: string; roomId: string }[];
-  capacity: (room: string) => { total: number; free: number };
+  capacity: (room: string) => RoomCapacity;
   onAddRoom: () => Promise<void>;
   initialRoom: string;
   busy: boolean;

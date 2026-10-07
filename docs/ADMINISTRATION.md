@@ -17,6 +17,10 @@ La barre d’enregistrement indique les modifications en attente, l’envoi de l
 
 Une modification concurrente affiche une erreur et propose **Recharger la version enregistrée**, avec confirmation avant de remplacer vos saisies. Si une image échoue, la fiche déjà enregistrée reste disponible et le fichier choisi reste en attente : **Enregistrer les modifications** réessaie sans créer un second tableau. L’image précédente est conservée si son remplacement échoue. Pour une création suivie d’une publication, la fiche reste en brouillon tant que l’image ou le placement n’est pas validé. Ces étapes ne constituent pas une transaction unique ; le message précise les éventuels enregistrements partiels.
 
+Dans **Textes & contact**, le serveur compare les réglages de départ à ceux enregistrés avant toute modification : une édition concurrente est refusée (HTTP 409), sans effacer vos saisies. Après déploiement, recharger les onglets `/admin` pour activer cette protection. Les anciens onglets restent compatibles avec le serveur mais ne transmettent pas la comparaison des réglages ; ils ne bénéficient pas de cette protection tant qu’ils ne sont pas rechargés. La comparaison tient compte du remplacement configuré de l’adresse email publique.
+
+La capacité indique la surface des zones non couverte par les cadres, en m². Ce chiffre ne représente pas un nombre de tableaux supplémentaires : l’accrochage dépend du format, de la taille et de l’espace entre les cadres. L’avertissement de manque de place vérifie le placement réel du format connu de l’œuvre, même si toutes les zones contiennent déjà un tableau.
+
 Une session expirée conserve le formulaire et propose de se reconnecter dans un autre onglet, puis de réessayer. L’archivage est réversible et aucune suppression définitive n’est exposée dans cette version.
 
 ## Réorganiser plusieurs tableaux

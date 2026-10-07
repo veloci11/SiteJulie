@@ -42,10 +42,16 @@ export async function readPrivateBytes(pathname: string) {
   return Buffer.from(await new Response(result.stream).arrayBuffer());
 }
 
-export async function latestBackup() {
-  const files = await listPrivateFiles(BACKUP_PREFIX + "snapshots/");
+export async function latestBackup(
+  files?: Awaited<ReturnType<typeof listPrivateFiles>>,
+) {
+  files ??= await listPrivateFiles(BACKUP_PREFIX + "snapshots/");
   const manifests = files
-    .filter((file) => file.pathname.endsWith("/manifest.json"))
+    .filter(
+      (file) =>
+        file.pathname.startsWith(BACKUP_PREFIX + "snapshots/") &&
+        file.pathname.endsWith("/manifest.json"),
+    )
     .sort((a, b) => b.uploadedAt.getTime() - a.uploadedAt.getTime());
   if (!manifests[0]) return null;
   const record = await readPrivateJson<unknown>(manifests[0].pathname);

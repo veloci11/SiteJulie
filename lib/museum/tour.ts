@@ -356,16 +356,12 @@ export function overviewFov(width: number, height: number) {
   const aspect = width / height;
   return aspect <= referenceAspect
     ? referenceFov
-    : Math.max(
-        60,
-        (2 *
-          Math.atan(
-            (Math.tan((referenceFov * Math.PI) / 360) * referenceAspect) /
-              aspect,
-          ) *
-          180) /
-          Math.PI,
-      );
+    : (2 *
+        Math.atan(
+          (Math.tan((referenceFov * Math.PI) / 360) * referenceAspect) / aspect,
+        ) *
+        180) /
+        Math.PI;
 }
 export function overviewLensOffset(width: number, height: number) {
   const portrait = width <= 700 && height >= width;

@@ -14,6 +14,7 @@ import {
   motionFromPose,
   motionLookTarget,
   planCameraMotion,
+  NAVIGATION_SPEED_MULTIPLIER,
   sampleCameraMotion,
   type CameraMotion,
   type CameraMotionSample,
@@ -754,6 +755,11 @@ export function CameraDirector({
       const motion = planCameraMotion(from, pose, data.rooms, {
         duration,
         endSample: roomEndSample,
+        pace:
+          !reframe &&
+          (destination.kind === "artwork" || destination.kind === "room")
+            ? NAVIGATION_SPEED_MULTIPLIER
+            : 1,
       });
       journey.current = {
         id: navigationId,

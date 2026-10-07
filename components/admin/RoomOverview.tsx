@@ -1,4 +1,5 @@
 "use client";
+import type { RoomCapacity } from "@/lib/admin/room-capacity";
 
 export default function RoomOverview({
   rooms,
@@ -10,7 +11,7 @@ export default function RoomOverview({
 }: {
   rooms: string[];
   collections: { name: string; roomId: string }[];
-  capacity: (room: string) => { total: number; free: number };
+  capacity: (room: string) => RoomCapacity;
   selected: string;
   onSelect: (room: string) => void;
   disabled: boolean;
@@ -28,7 +29,7 @@ export default function RoomOverview({
       </p>
       <div className="admin-room-options">
         {rooms.map((room) => {
-          const { free, total } = capacity(room);
+          const { freeSurfaceM2, occupiedZones, total } = capacity(room);
           const names = collections
             .filter((collection) => collection.roomId === room)
             .map((collection) => collection.name || "Sans collection");
@@ -50,7 +51,7 @@ export default function RoomOverview({
                 {Array.from({ length: Math.min(total, 14) }, (_, index) => (
                   <i
                     key={index}
-                    className={index < total - free ? "is-taken" : ""}
+                    className={index < occupiedZones ? "is-taken" : ""}
                   />
                 ))}
               </span>
@@ -59,7 +60,11 @@ export default function RoomOverview({
                 {names.length ? names.join(" · ") : "Aucune collection"}
               </span>
               <small id={`room-capacity-${room}`}>
-                {total} zones · {free} encore vides · plusieurs œuvres par zone
+                {total} zones ·{" "}
+                {freeSurfaceM2.toLocaleString("fr-CH", {
+                  maximumFractionDigits: 1,
+                })}{" "}
+                m² hors cadres · l’ajout dépend du format du tableau
               </small>
               {selected === room && <em>✓ Salle choisie</em>}
             </label>

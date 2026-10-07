@@ -18,6 +18,7 @@ import {
 } from "./config";
 export const CAMERA_RADIUS = 0.32;
 export const CAMERA_FOV = 60;
+export const NAVIGATION_SPEED_MULTIPLIER = 1.25;
 export const MAX_CAMERA_SPEED = 3.2;
 export const MAX_CAMERA_ANGULAR_SPEED = (40 * Math.PI) / 180;
 export const CAMERA_EYE_HEIGHT = 2.05;
@@ -886,7 +887,12 @@ function motionTravelProfile(
   length: number,
   endSpeed = 0,
   look: RoomLook | null = null,
+  pace = 1,
 ): TravelProfile {
+  const angularSpeed = MAX_CAMERA_ANGULAR_SPEED * pace;
+  const angularAcceleration = MAX_CAMERA_ANGULAR_ACCELERATION * pace ** 2;
+  const translationAcceleration =
+    MAX_CAMERA_TRANSLATION_ACCELERATION * pace ** 2;
   if (length < 0.00001)
     return { points: [{ time: 0, distance: 0, speed: 0 }], duration: 0 };
   const steps = Math.max(120, Math.min(1200, Math.ceil(length * 45))),
@@ -909,19 +915,22 @@ function motionTravelProfile(
       ? Math.sin(g.yaw) * tangents[i][0] + Math.cos(g.yaw) * tangents[i][2]
       : 1;
     return Math.min(
-      g && forward < Math.cos((43 * Math.PI) / 180) ? 0.92 : MAX_CAMERA_SPEED,
+      (g && forward < Math.cos((43 * Math.PI) / 180)
+        ? 0.92
+        : MAX_CAMERA_SPEED) * pace,
       g
-        ? (MAX_CAMERA_ANGULAR_SPEED * 0.95) /
+        ? (angularSpeed * 0.95) /
             Math.max(0.00001, Math.hypot(g.yawRate, g.pitchRate))
         : Infinity,
       g
         ? Math.sqrt(
-            (MAX_CAMERA_ANGULAR_ACCELERATION * 0.85) /
+            (angularAcceleration * 0.85) /
               Math.max(0.00001, Math.hypot(g.yawSecond, g.pitchSecond)),
           )
         : Infinity,
       Math.sqrt(
-        (MAX_CAMERA_LATERAL_ACCELERATION * 0.8) / Math.max(0.00001, curvature),
+        (MAX_CAMERA_LATERAL_ACCELERATION * pace ** 2 * 0.8) /
+          Math.max(0.00001, curvature),
       ),
     );
   });
@@ -931,9 +940,7 @@ function motionTravelProfile(
     if (!look || limit <= neighbor)
       return Math.min(
         limit,
-        Math.sqrt(
-          neighbor ** 2 + 2 * MAX_CAMERA_TRANSLATION_ACCELERATION * step,
-        ),
+        Math.sqrt(neighbor ** 2 + 2 * translationAcceleration * step),
       );
     const rate =
       Math.max(
@@ -951,11 +958,10 @@ function motionTravelProfile(
       const mid = (lo + hi) / 2;
       const available = Math.max(
         0,
-        MAX_CAMERA_ANGULAR_ACCELERATION * 0.92 -
-          second * Math.max(mid ** 2, neighbor ** 2),
+        angularAcceleration * 0.92 - second * Math.max(mid ** 2, neighbor ** 2),
       );
       const acceleration = Math.min(
-        MAX_CAMERA_TRANSLATION_ACCELERATION,
+        translationAcceleration,
         available / Math.max(0.00001, rate),
       );
       if (mid ** 2 <= neighbor ** 2 + 2 * acceleration * step) lo = mid;
@@ -1005,9 +1011,15 @@ export function planCameraMotion(
   options: {
     duration?: number;
     speedScale?: number;
+    /** Faster explicit navigation; the ambient walk keeps its own speed. */
+    pace?: number;
     endSample?: CameraMotionSample;
   } = {},
 ): CameraMotion {
+  const pace = Math.max(
+    1,
+    Math.min(NAVIGATION_SPEED_MULTIPLIER, options.pace ?? 1),
+  );
   const moving =
     Math.hypot(...initial.velocity) +
       Math.abs(initial.yawVelocity) +
@@ -1083,11 +1095,12 @@ export function planCameraMotion(
     const preTurn =
       Math.sign(turn) * Math.max(0, Math.abs(turn) - (40 * Math.PI) / 180);
     if (Math.abs(preTurn) > 0.01) {
-      orientDuration = Math.max(
-        (((Math.abs(preTurn) * 4) / 3) * 1.002) / MAX_CAMERA_ANGULAR_SPEED,
-        Math.sqrt((Math.abs(preTurn) * 8) / MAX_CAMERA_ANGULAR_ACCELERATION) *
-          1.005,
-      );
+      orientDuration =
+        Math.max(
+          (((Math.abs(preTurn) * 4) / 3) * 1.002) / MAX_CAMERA_ANGULAR_SPEED,
+          Math.sqrt((Math.abs(preTurn) * 8) / MAX_CAMERA_ANGULAR_ACCELERATION) *
+            1.005,
+        ) / pace;
       stopped = { ...stopped, yaw: stopped.yaw + preTurn };
     }
   }
@@ -1173,7 +1186,14 @@ export function planCameraMotion(
       : destination.roomEntry && length > 0.01
         ? makeRoomLook(path, curve, length, stopped, final, options.endSample)
         : null;
-  const profile = motionTravelProfile(path, curve, length, endSpeed, roomLook);
+  const profile = motionTravelProfile(
+    path,
+    curve,
+    length,
+    endSpeed,
+    roomLook,
+    pace,
+  );
   const endYawDerivative =
     (options.endSample?.yawVelocity ?? 0) * profile.duration;
   const endPitchDerivative =
@@ -1261,14 +1281,15 @@ export function planCameraMotion(
     );
   }
   const angularDuration =
-    (angularDerivative * 1.002) / MAX_CAMERA_ANGULAR_SPEED;
+    (angularDerivative * 1.002) / (MAX_CAMERA_ANGULAR_SPEED * pace);
   const travelDuration =
     Math.max(
-      options.duration ?? 1.65,
+      options.duration ?? 1.65 / pace,
       profile.duration,
       angularDuration,
-      Math.sqrt(angularSecondDerivative / MAX_CAMERA_ANGULAR_ACCELERATION) *
-        (roomLook ? 1.015 : 1.005),
+      Math.sqrt(
+        angularSecondDerivative / (MAX_CAMERA_ANGULAR_ACCELERATION * pace ** 2),
+      ) * (roomLook ? 1.015 : 1.005),
     ) / Math.max(0.1, Math.min(1, options.speedScale ?? 1));
   const lastLook = roomLook && roomLookAt(roomLook, length);
   const focusAngle =
@@ -1283,11 +1304,12 @@ export function planCameraMotion(
       ? {
           yaw: lastLook.yaw + shortestAngle(lastLook.yaw, final.yaw),
           pitch: final.pitch,
-          duration: Math.max(
-            (((focusAngle * 4) / 3) * 1.002) / MAX_CAMERA_ANGULAR_SPEED,
-            Math.sqrt((focusAngle * 8) / MAX_CAMERA_ANGULAR_ACCELERATION) *
-              1.005,
-          ),
+          duration:
+            Math.max(
+              (((focusAngle * 4) / 3) * 1.002) / MAX_CAMERA_ANGULAR_SPEED,
+              Math.sqrt((focusAngle * 8) / MAX_CAMERA_ANGULAR_ACCELERATION) *
+                1.005,
+            ) / pace,
         }
       : undefined;
   return {

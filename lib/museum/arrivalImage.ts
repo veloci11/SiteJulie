@@ -15,7 +15,7 @@ export function arrivalFolder(local: string, fingerprint: string) {
   if (!/^[a-f0-9]{64}$/.test(fingerprint)) throw new Error("Invalid revision");
   return path.join(local, "arrival", "generated", fingerprint);
 }
-async function capturedImage(
+async function fileCapture(
   data: PublicData,
   room: string,
   view: ArrivalView,
@@ -23,8 +23,6 @@ async function capturedImage(
   bundled = bundledArrivalRoot(),
 ) {
   if (!arrivalRooms(data).includes(room)) return null;
-  const browserCapture = await readBrowserArrival(data, room, view, local);
-  if (browserCapture) return browserCapture;
   const fingerprint = arrivalFingerprint(data);
   // The previous manually generated cache remains readable when its exact
   // public hanging matches. Every automatic batch lives in an immutable folder.
@@ -59,23 +57,36 @@ async function capturedImage(
   }
   return null;
 }
+async function capturedImage(
+  data: PublicData,
+  room: string,
+  view: ArrivalView,
+  local: string,
+  bundled = bundledArrivalRoot(),
+) {
+  // An exact release capture needs no Blob lookup. Its fingerprint still
+  // checks the public hanging and opening lens before every response.
+  const file = await fileCapture(data, room, view, local, bundled);
+  if (file) return file;
+  return readBrowserArrival(data, room, view, local);
+}
 export async function arrivalReady(
   data: PublicData,
   local: string,
   bundled = bundledArrivalRoot(),
 ) {
-  if (await browserArrivalReady(data, local)) return true;
   const rooms = arrivalRooms(data);
   if (!rooms.length || rooms.length !== data.rooms.length) return false;
-  return (
+  const filesReady = (
     await Promise.all(
       rooms.flatMap((room) =>
         arrivalViews.map((view) =>
-          capturedImage(data, room, view, local, bundled),
+          fileCapture(data, room, view, local, bundled),
         ),
       ),
     )
   ).every(Boolean);
+  return filesReady || browserArrivalReady(data, local);
 }
 const neutralFallbacks = new Map<ArrivalView, Promise<Buffer>>();
 async function emptyArrival(

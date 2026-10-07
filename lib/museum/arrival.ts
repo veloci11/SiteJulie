@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import type { PublicData } from "@/lib/data/types";
 import { normalizeCollectionOrder } from "@/lib/data/collections";
+import { overviewFov, overviewLensOffset, overviewOpeningYaw } from "./tour";
 
 // A captured room may contain works visible through a doorway. Bind it to the
 // whole public hanging so an old poster cannot expose a removed/changed work.
@@ -32,7 +33,20 @@ export function arrivalFingerprint(
   return createHash("sha256")
     .update(
       JSON.stringify({
-        sceneVersion: "contemporary-vaulted-v22-open-60deg-lens",
+        sceneVersion: "contemporary-vaulted-v23-opening-64-68-cover-lens",
+        // Changing the opening lens automatically invalidates old captures.
+        openingViews: [
+          [1600, 1000],
+          [430, 932],
+        ].map(([width, height]) => ({
+          width,
+          height,
+          fov: overviewFov(width, height),
+          offset: overviewLensOffset(width, height),
+          yaw: data.rooms.map((room) =>
+            overviewOpeningYaw(room, width, height),
+          ),
+        })),
         rooms: data.rooms,
         artworks,
       }),

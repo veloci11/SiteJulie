@@ -1227,11 +1227,7 @@ describe("Direct manual journeys and exact arrival", () => {
         ref = portrait ? 430 / 932 : 1.6,
         base = portrait ? 68 : 64;
       expect(Math.tan((pose.fov! * Math.PI) / 360)).toBeCloseTo(
-        Math.max(
-          Math.tan((60 * Math.PI) / 360),
-          Math.tan((base * Math.PI) / 360) *
-            Math.min(1, ref / (width / height)),
-        ),
+        Math.tan((base * Math.PI) / 360) * Math.min(1, ref / (width / height)),
         10,
       );
     }

@@ -2,10 +2,8 @@ import "server-only";
 import { BACKUP_PREFIX, latestBackup, listPrivateFiles } from "./backups";
 
 export async function storageUsage() {
-  const [files, backup] = await Promise.all([
-    listPrivateFiles(),
-    latestBackup(),
-  ]);
+  const files = await listPrivateFiles();
+  const backup = await latestBackup(files);
   const budget = Number(process.env.MUSEUM_STORAGE_BUDGET_BYTES);
   const capacityBytes =
     Number.isSafeInteger(budget) && budget > 0 ? budget : null;
