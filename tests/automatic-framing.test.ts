@@ -4,6 +4,7 @@ import type { Artwork } from "../lib/data/types";
 import {
   automaticLens,
   automaticTourInsets,
+  openingLensTarget,
 } from "../lib/museum/automaticFraming";
 import {
   getSlots,
@@ -12,8 +13,60 @@ import {
   FRAME_FRONT_DEPTH,
 } from "../lib/museum/config";
 import { motionFromPose, motionLookTarget } from "../lib/museum/navigation";
+import { ambientWalkPosterPose, createAmbientWalk } from "../lib/museum/tour";
 
 describe("Automatic visit framing", () => {
+  it("keeps the opening projection at handoff and moves it less than a pixel in the first second", () => {
+    const walk = createAmbientWalk("room-1", ["room-1", "room-2"], []);
+    for (const [width, height] of [
+      [1280, 720],
+      [1600, 1000],
+      [430, 932],
+    ]) {
+      const pose = ambientWalkPosterPose(walk, width, height);
+      const sample = motionFromPose(pose);
+      const target = { fov: 78, offsetX: 152, offsetY: 65 };
+      const cameraFor = (lens: typeof target) => {
+        const camera = new PerspectiveCamera(
+          lens.fov,
+          width / height,
+          0.1,
+          260,
+        );
+        camera.position.fromArray(pose.position);
+        camera.lookAt(new Vector3(...pose.target));
+        camera.setViewOffset(
+          width,
+          height,
+          lens.offsetX,
+          lens.offsetY,
+          width,
+          height,
+        );
+        camera.updateMatrixWorld();
+        return camera;
+      };
+      const initial = cameraFor(sample);
+      const landmark = initial.localToWorld(new Vector3(1, 1, -8));
+      const project = (lens: typeof target) => {
+        const point = landmark.clone().project(cameraFor(lens));
+        return new Vector3(
+          ((point.x + 1) * width) / 2,
+          ((1 - point.y) * height) / 2,
+          0,
+        );
+      };
+      const before = project(sample);
+      expect(
+        project(openingLensTarget(target, width, height, 0)).distanceTo(before),
+      ).toBeLessThan(0.00001);
+      expect(
+        project(openingLensTarget(target, width, height, 1)).distanceTo(before),
+      ).toBeLessThan(1);
+      expect(openingLensTarget(target, width, height, 18)).toEqual(target);
+      expect(openingLensTarget(target, width, height, 30)).toEqual(target);
+    }
+  });
   it("keeps the lens and actual painting projection stable while its preview mounts, hides and changes", () => {
     const slot = getSlots()[0];
     const artwork = {

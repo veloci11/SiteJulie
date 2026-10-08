@@ -33,7 +33,7 @@ export function arrivalFingerprint(
   return createHash("sha256")
     .update(
       JSON.stringify({
-        sceneVersion: "contemporary-vaulted-v23-opening-64-68-cover-lens",
+        sceneVersion: "contemporary-vaulted-v24-presented-opening-captures",
         // Changing the opening lens automatically invalidates old captures.
         openingViews: [
           [1600, 1000],

@@ -18,7 +18,7 @@ import {
 } from "./config";
 export const CAMERA_RADIUS = 0.32;
 export const CAMERA_FOV = 60;
-export const NAVIGATION_SPEED_MULTIPLIER = 1.25;
+export const NAVIGATION_SPEED_MULTIPLIER = 1.25 * 1.15;
 export const MAX_CAMERA_SPEED = 3.2;
 export const MAX_CAMERA_ANGULAR_SPEED = (40 * Math.PI) / 180;
 export const CAMERA_EYE_HEIGHT = 2.05;

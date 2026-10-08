@@ -1,9 +1,5 @@
 {
-  "fingerprint": "7b6c94fc9e129aae86c853856a1071a381120e1d9e113d1fbc3af281e04cc6af",
-  "capturedAt": "2026-10-07T23:43:14.649Z",
-  "openingFov": {
-    "wide": 64,
-    "portrait": 68
-  },
-  "notice": "Reviewed actual Codex browser captures at 1600x1000 and 430x932. Server-only; serve solely for the matching public hanging and lens."
+  "fingerprint": "28494190b75ee196873905b4f94a8c85b18d9af699296e39e957181435f84069",
+  "capturedAt": "2026-10-08T02:45:43.380Z",
+  "notice": "Reviewed current browser captures. Server-only; serve solely for the matching public hanging."
 }

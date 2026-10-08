@@ -33,7 +33,8 @@ const start = motionFromPose(
   ),
 );
 
-it("makes artwork and room journeys 25% faster while preserving their safe path", () => {
+it("makes artwork and room journeys another 15% faster while preserving their safe path", () => {
+  expect(pace).toBeCloseTo(1.25 * 1.15, 8);
   const obstacles = navigationObstaclesForRooms(data.rooms);
   const targets = [
     ...data.artworks
@@ -48,8 +49,12 @@ it("makes artwork and room journeys 25% faster while preserving their safe path"
   ];
   for (const target of targets) {
     const normal = planCameraMotion(start, target, data.rooms);
+    const previous = planCameraMotion(start, target, data.rooms, {
+      pace: 1.25,
+    });
     const faster = planCameraMotion(start, target, data.rooms, { pace });
     expect(faster.duration * pace).toBeCloseTo(normal.duration, 5);
+    expect(faster.duration * 1.15).toBeCloseTo(previous.duration, 5);
     expect(faster.path).toEqual(normal.path);
     for (let i = 0; i <= 120; i++) {
       const sample = sampleCameraMotion(faster, (faster.duration * i) / 120);

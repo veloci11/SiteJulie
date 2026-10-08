@@ -1,6 +1,11 @@
 "use client";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { addEffect, useFrame, useThree } from "@react-three/fiber";
+import {
+  addAfterEffect,
+  addEffect,
+  useFrame,
+  useThree,
+} from "@react-three/fiber";
 import { CameraControls } from "@react-three/drei";
 import CameraControlsImpl from "camera-controls";
 import { PerspectiveCamera, Vector3 } from "three";
@@ -38,6 +43,7 @@ import {
 import {
   automaticLens,
   automaticTourInsets,
+  openingLensTarget,
 } from "@/lib/museum/automaticFraming";
 import {
   ContinuousPromenade,
@@ -53,6 +59,7 @@ interface Props {
   reducedMotion: boolean;
   onArrive: (id: number) => void;
   onError: () => void;
+  onFirstFrame?: () => void;
   skipTransition?: boolean;
   ambientTour?: boolean;
   roomAutoplay?: boolean;
@@ -77,6 +84,7 @@ export function CameraDirector({
   reducedMotion,
   onArrive,
   onError,
+  onFirstFrame,
   skipTransition,
   ambientTour = false,
   roomAutoplay = false,
@@ -104,6 +112,7 @@ export function CameraDirector({
   const callbacks = useRef({
     onArrive,
     onError,
+    onFirstFrame,
     onTourArtwork,
     onLookResume,
     onLookStateChange,
@@ -111,10 +120,22 @@ export function CameraDirector({
   callbacks.current = {
     onArrive,
     onError,
+    onFirstFrame,
     onTourArtwork,
     onLookResume,
     onLookStateChange,
   };
+  const presented = useRef(false);
+  useEffect(
+    () =>
+      addAfterEffect(() => {
+        // Hide the poster only after the renderer has painted the applied pose.
+        if (presented.current || !rendered.current) return;
+        presented.current = true;
+        callbacks.current.onFirstFrame?.();
+      }),
+    [],
+  );
   const currentRooms = useRef(data.rooms);
   currentRooms.current = data.rooms;
   const manualResume = useRef(false);
@@ -147,6 +168,8 @@ export function CameraDirector({
     dueAt: TOUR_INITIAL_DELAY,
     hasStarted: false,
     readyOnLoop: false,
+    openingLens: false,
+    openingElapsed: 0,
     entryElapsed: null as number | null,
   });
   const wake = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -602,6 +625,8 @@ export function CameraDirector({
           dueAt: TOUR_INITIAL_DELAY,
           hasStarted: false,
           readyOnLoop: first.current && roomAutoplay,
+          openingLens: first.current && overview,
+          openingElapsed: 0,
           entryElapsed: null,
         };
         tour.current.timeline.update(
@@ -932,14 +957,24 @@ export function CameraDirector({
     }
     // Widen promptly on approach, relax slowly on departure: no sudden zoom
     // when changing the watched work or resuming from its detail view.
+    // Use the same bounded display steps as the walk, never wall-clock stalls.
+    if (state.openingLens) state.openingElapsed += activeDelta;
+    const targetLens = state.openingLens
+      ? openingLensTarget(
+          lens.target,
+          size.width,
+          size.height,
+          state.openingElapsed,
+        )
+      : lens.target;
     const dt = Math.min(Math.max(activeDelta, 0), 0.1);
-    const blend = 1 - Math.exp(-dt * (lens.target.fov > sample.fov ? 4 : 0.35));
-    const nextFov = sample.fov + (lens.target.fov - sample.fov) * blend;
+    const blend = 1 - Math.exp(-dt * (targetLens.fov > sample.fov ? 4 : 0.35));
+    const nextFov = sample.fov + (targetLens.fov - sample.fov) * blend;
     const shiftBlend = 1 - Math.exp(-dt * 1.5);
     const nextX =
-      sample.offsetX + (lens.target.offsetX - sample.offsetX) * shiftBlend;
+      sample.offsetX + (targetLens.offsetX - sample.offsetX) * shiftBlend;
     const nextY =
-      sample.offsetY + (lens.target.offsetY - sample.offsetY) * shiftBlend;
+      sample.offsetY + (targetLens.offsetY - sample.offsetY) * shiftBlend;
     sample.fovVelocity = dt ? (nextFov - sample.fov) / dt : 0;
     sample.offsetVelocityX = dt ? (nextX - sample.offsetX) / dt : 0;
     sample.offsetVelocityY = dt ? (nextY - sample.offsetY) / dt : 0;

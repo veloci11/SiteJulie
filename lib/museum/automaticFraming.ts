@@ -7,7 +7,7 @@ import {
   FRAME_FRONT_DEPTH,
 } from "./config";
 import { motionLookTarget, type CameraMotionSample } from "./navigation";
-import { overviewFov } from "./tour";
+import { overviewFov, overviewLensOffset } from "./tour";
 import { hangingGroups } from "./hangingGroups";
 
 export interface ViewInsets {
@@ -15,6 +15,27 @@ export interface ViewInsets {
   bottom: number;
   left: number;
   right: number;
+}
+
+/** Keep the captured lens at departure, then settle into walking reservations.
+ * The zero starting velocity/acceleration avoids a pan or zoom as the poster fades.
+ * This applies only to the initial visit, never an artwork focus or mouse release.
+ */
+export function openingLensTarget(
+  target: { fov: number; offsetX: number; offsetY: number },
+  width: number,
+  height: number,
+  elapsed: number,
+) {
+  const u = Math.max(0, Math.min(1, elapsed / 18));
+  const blend = u * u * u * (10 + u * (-15 + 6 * u));
+  const offset = overviewLensOffset(width, height);
+  const fov = overviewFov(width, height);
+  return {
+    fov: fov + (target.fov - fov) * blend,
+    offsetX: offset.x + (target.offsetX - offset.x) * blend,
+    offsetY: offset.y + (target.offsetY - offset.y) * blend,
+  };
 }
 
 /** Reserve the automatic artwork card before it mounts. Its arrival, hover or

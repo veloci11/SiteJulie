@@ -386,6 +386,8 @@ export function MuseumScene(props: MuseumProps) {
   const [mounted, setMounted] = useState<string[]>([targetRoom]);
   const [ready, setReady] = useState<Set<string>>(() => new Set());
   const [failed, setFailed] = useState<Set<string>>(() => new Set());
+  const [cameraPresented, setCameraPresented] = useState(false);
+  const onFirstCameraFrame = useCallback(() => setCameraPresented(true), []);
   const [committed, setCommitted] = useState<{
     destination: Destination;
     navigationId: number;
@@ -459,6 +461,7 @@ export function MuseumScene(props: MuseumProps) {
     scene.userData.artworkCount = data.artworks.length;
     if (
       routeReady &&
+      cameraPresented &&
       (!props.captureAllRooms || allReady) &&
       !announced.current
     ) {
@@ -474,6 +477,7 @@ export function MuseumScene(props: MuseumProps) {
     readyKey,
     allReady,
     routeReady,
+    cameraPresented,
     targetRoom,
     currentRoom,
     props.captureAllRooms,
@@ -564,6 +568,7 @@ export function MuseumScene(props: MuseumProps) {
           {...props}
           {...committed}
           ambientTour={props.ambientTour && routeReady}
+          onFirstFrame={onFirstCameraFrame}
           onArrive={(id) => callbacks.current.onArrive(id)}
         />
       )}
