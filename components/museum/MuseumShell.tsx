@@ -157,7 +157,7 @@ export default function MuseumShell({
     version: previewVersion,
     ready: previewReady,
     fingerprint: previewFingerprint,
-  } = useRoomPreviewVersion(catalogueVersion, drawer === "rooms" || !revealed);
+  } = useRoomPreviewVersion(catalogueVersion, drawer === "rooms");
   const { images: roomPreviewImages, captureFrame: roomPreviewFrame } =
     useLiveRoomPreviews(
       data,
@@ -763,22 +763,24 @@ export default function MuseumShell({
             </SceneBoundary>
           )}
         </div>
-        <picture
-          className={`visit-arrival ${ready ? "is-ready" : ""}`}
-          aria-hidden="true"
-        >
-          <source
-            media="(max-width: 700px) and (orientation: portrait)"
-            srcSet={`/api/museum/arrival?room=${roomId}&view=portrait&v=${previewVersion}`}
-          />
-          <img
-            src={`/api/museum/arrival?room=${roomId}&view=wide&v=${previewVersion}`}
-            alt=""
-            fetchPriority="high"
-            loading="eager"
-            decoding="sync"
-          />
-        </picture>
+        {!revealed && (
+          <picture
+            className={`visit-arrival ${ready ? "is-ready" : ""}`}
+            aria-hidden="true"
+          >
+            <source
+              media="(max-width: 700px) and (orientation: portrait)"
+              srcSet={`/api/museum/arrival?room=${roomId}&view=portrait&v=${catalogueVersion}`}
+            />
+            <img
+              src={`/api/museum/arrival?room=${roomId}&view=wide&v=${catalogueVersion}`}
+              alt=""
+              fetchPriority="high"
+              loading="eager"
+              decoding="sync"
+            />
+          </picture>
+        )}
         {!ready && !failed && (
           <span className="visit-loading-hint" role="status">
             <span className="visit-loading-spinner" aria-hidden="true" />

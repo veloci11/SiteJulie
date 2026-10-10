@@ -138,7 +138,7 @@ export function ArtworkImage({
       >
         {preview || artwork.image ? (
           <img
-            src={preview || artwork.detailImage || artwork.image}
+            src={preview || artwork.image}
             alt={artwork.alt || "Aperçu du tableau"}
           />
         ) : (

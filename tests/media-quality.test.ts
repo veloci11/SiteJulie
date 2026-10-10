@@ -1,8 +1,30 @@
 import { describe, expect, it } from "vitest";
 import sharp from "sharp";
-import { processImage } from "@/lib/media/service";
+import { processImage, variants } from "@/lib/media/service";
 
 describe("Artwork image quality", () => {
+  it("bounds both texture edges for a very tall artwork without cropping it", async () => {
+    const width = 400;
+    const height = 12000;
+    const source = await sharp({
+      create: { width, height, channels: 3, background: "#b35a8c" },
+    })
+      .png()
+      .toBuffer();
+    const result = await processImage(source);
+    for (const output of result.outputs) {
+      const metadata = await sharp(output.buffer).metadata();
+      const limit = variants[output.variant];
+      expect(metadata.height).toBe(limit);
+      expect(metadata.width).toBe(Math.round((limit * width) / height));
+      expect(Math.max(metadata.width!, metadata.height!)).toBeLessThanOrEqual(
+        limit,
+      );
+    }
+    expect(result.height).toBe(variants.detail);
+    expect(result.width).toBe(Math.round((variants.detail * width) / height));
+  });
+
   it("uses the requested resolution limits and lossless decoded detail pixels", async () => {
     const width = 2800;
     const height = 1680;

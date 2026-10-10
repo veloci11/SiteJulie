@@ -70,12 +70,19 @@ export async function processImage(buffer: Buffer) {
   if (!["jpeg", "png", "webp", "heif", "avif"].includes(meta.format || ""))
     throw new ServiceError("Formats acceptés : JPEG, PNG, WebP et AVIF.");
   const outputs = await Promise.all(
-    Object.entries(variants).map(async ([variant, width]) => ({
+    Object.entries(variants).map(async ([variant, edge]) => ({
       variant: variant as Variant,
       buffer: await sharp(buffer, { limitInputPixels: 25_000_000 })
         .rotate()
         .toColourspace("srgb")
-        .resize({ width, withoutEnlargement: true })
+        // Bound the longest edge after EXIF rotation: a width-only resize lets
+        // tall portraits create oversized thumbnails and WebGL textures.
+        .resize({
+          width: edge,
+          height: edge,
+          fit: "inside",
+          withoutEnlargement: true,
+        })
         .webp(
           variant === "detail"
             ? { lossless: true }

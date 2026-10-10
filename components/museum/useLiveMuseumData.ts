@@ -19,6 +19,7 @@ export function useLiveMuseumData(
     let active = true;
     let pending = false;
     let queued = false;
+    let refreshTimer: ReturnType<typeof setTimeout> | undefined;
     const controller = new AbortController();
     const refresh = async () => {
       if (document.hidden) return;
@@ -50,7 +51,10 @@ export function useLiveMuseumData(
       pending = false;
     };
     const onRefresh = () => {
-      void refresh();
+      // Focus/visibility and storage/BroadcastChannel describe the same action.
+      // Collapse each burst without losing edits received during a pending read.
+      clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(() => void refresh(), 100);
     };
     const onStorage = (event: StorageEvent) => {
       if (event.key === CATALOGUE_CHANGED) onRefresh();
@@ -63,14 +67,17 @@ export function useLiveMuseumData(
       /* Focus and storage events work without BroadcastChannel. */
     }
     window.addEventListener("focus", onRefresh);
+    window.addEventListener(CATALOGUE_CHANGED, onRefresh);
     if (refreshOnOpen) void refresh();
     document.addEventListener("visibilitychange", onRefresh);
     window.addEventListener("storage", onStorage);
     return () => {
       active = false;
       controller.abort();
+      clearTimeout(refreshTimer);
       channel?.close();
       window.removeEventListener("focus", onRefresh);
+      window.removeEventListener(CATALOGUE_CHANGED, onRefresh);
       document.removeEventListener("visibilitychange", onRefresh);
       window.removeEventListener("storage", onStorage);
     };
